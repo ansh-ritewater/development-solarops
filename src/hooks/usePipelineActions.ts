@@ -727,6 +727,7 @@ export function usePipelineActions() {
       });
     } catch (err) {
       console.error('[initializeJourneySteps] failed:', err);
+      void logError('pipeline.initializeJourneySteps', err, { taskId });
       throw err;
     }
   }
@@ -880,6 +881,7 @@ export function usePipelineActions() {
       });
     } catch (err) {
       console.error('[saveJourneyStepDraft] failed:', err);
+      void logError('pipeline.saveJourneyStepDraft', err, { taskId });
     }
   }
 
@@ -923,6 +925,7 @@ export function usePipelineActions() {
       showToast('Remark saved', 'success');
     } catch (err) {
       console.error('[saveJourneyStepRemark] failed:', err);
+      void logError('pipeline.saveJourneyStepRemark', err, { taskId });
       showToast(
         err instanceof Error ? err.message : 'Failed to save remark. Try again.',
         'error',
@@ -944,6 +947,7 @@ export function usePipelineActions() {
       showToast('Remark updated', 'success');
     } catch (err) {
       console.error('[updateBackendRemark] failed:', err);
+      void logError('pipeline.updateBackendRemark', err, { taskId });
       showToast('Failed to update remark. Try again.', 'error');
       throw err;
     }
@@ -962,6 +966,7 @@ export function usePipelineActions() {
       showToast('Remark updated', 'success');
     } catch (err) {
       console.error('[updateProposalRemark] failed:', err);
+      void logError('pipeline.updateProposalRemark', err, { taskId });
       showToast('Failed to update remark. Try again.', 'error');
       throw err;
     }

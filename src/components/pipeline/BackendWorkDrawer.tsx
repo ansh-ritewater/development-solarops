@@ -15,6 +15,7 @@ import { db }                 from '@/firebase/config';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { getProposalNoteRecipientLabel } from '@/utils/proposalNoteLabel';
+import { logError } from '@/utils/logError';
 import type {
   Task, JourneyStepAnswer, SurveyStageData, DocumentsStageData, ProposalStageData,
 } from '@/types';
@@ -116,7 +117,7 @@ export function BackendWorkDrawer({ task, onClose, isReadOnly = false }: Backend
       if (documentsSnap.exists()) {
         setDocumentsData(documentsSnap.data() as DocumentsStageData);
       }
-    }).catch(() => {}).finally(() => {
+    }).catch((err) => void logError('backendWorkDrawer.fetchData', err, { taskId: task?.id })).finally(() => {
       setLoadingStageData(false);
     });
   }, [task?.id]);

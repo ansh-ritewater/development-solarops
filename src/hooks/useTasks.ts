@@ -7,6 +7,7 @@ import {
 import { db } from '@/firebase/config';
 import { useTaskStore } from '@/store/taskStore';
 import { useAuthStore } from '@/store/authStore';
+import { logError } from '@/utils/logError';
 import type { Task, TaskStatus, PipelineStage, StageHistoryEntry, JourneyStepAnswer } from '@/types';
 
 export function docToTask(d: { id: string; data: () => Record<string, unknown> }): Task {
@@ -194,6 +195,7 @@ export function useTasks() {
       },
       (err) => {
         console.error('[useTasks] field error:', err);
+        void logError('useTasks.listener', err, {});
         setIsConnected(false);
       },
     );
@@ -478,6 +480,7 @@ export function useTasks() {
         setHasMore(false);
       }).catch((err) => {
         console.error('[useTasks] search error:', err);
+        void logError('useTasks.listener', err, {});
         setIsLoadingTasks(false);
       });
       return;
@@ -505,6 +508,7 @@ export function useTasks() {
       },
       (err) => {
         console.error('[useTasks] admin error:', err);
+        void logError('useTasks.listener', err, {});
         setIsConnected(false);
         setIsLoadingTasks(false);
       },

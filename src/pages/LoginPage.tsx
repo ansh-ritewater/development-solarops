@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
+import { logError } from '@/utils/logError';
 
 function mapAuthError(code: string): string {
   switch (code) {
@@ -65,6 +66,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? '';
       setError(mapAuthError(code));
+      void logError('auth.signIn', err, { email });
     } finally {
       setLoading(false);
     }

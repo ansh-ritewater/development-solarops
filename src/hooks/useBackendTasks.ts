@@ -8,6 +8,7 @@ import { db }           from '@/firebase/config';
 import { useAuthStore } from '@/store/authStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useStageTaskList } from '@/hooks/useStageTaskList';
+import { logError } from '@/utils/logError';
 import type { Task, PipelineStage, StageHistoryEntry, JourneyStepAnswer } from '@/types';
 
 // Exported so BackendManagerPage can pass it as the mapper to useStageTaskList
@@ -168,6 +169,7 @@ export function useBackendTasks() {
       setBackendHistoryLastDoc(snap.docs[snap.docs.length - 1] ?? null);
     }).catch((err) => {
       console.error('[useBackendTasks] history error:', err);
+      void logError('useBackendTasks.listener', err, {});
       setBackendHistoryLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

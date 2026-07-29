@@ -9,6 +9,7 @@ import { ProposalWorkDrawer } from '@/components/pipeline/ProposalWorkDrawer';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { getProposalNoteRecipientLabel } from '@/utils/proposalNoteLabel';
+import { logError } from '@/utils/logError';
 import type { Task, PipelineStage, StageHistoryEntry, ProposalStageData } from '@/types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db }          from '@/firebase/config';
@@ -181,7 +182,8 @@ function HistoryDetailContent({ task, onClose }: { task: Task | null; onClose: (
     ]).then(([proposalSnap, frSnap]) => {
       setProposalDoc(proposalSnap.exists() ? (proposalSnap.data() as ProposalStageData) : null);
       setFieldReviewData(frSnap.exists() ? (frSnap.data() as FieldReviewStageSnap) : null);
-    }).catch(() => {
+    }).catch((err) => {
+      void logError('proposalPage.fetchStageData', err, { taskId: task?.id });
       setProposalDoc(null);
       setFieldReviewData(null);
     });

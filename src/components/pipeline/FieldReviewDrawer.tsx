@@ -13,6 +13,7 @@ import { doc, getDoc }        from 'firebase/firestore';
 import { db }                 from '@/firebase/config';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
+import { logError } from '@/utils/logError';
 import type { Task, ProposalStageData } from '@/types';
 
 interface FieldReviewDrawerProps {
@@ -58,7 +59,7 @@ export function FieldReviewDrawer({ task, onClose, onAcceptedToDocuments }: Fiel
         if (snap.exists()) setProposalData(snap.data() as ProposalStageData);
         else setProposalData(null);
       })
-      .catch(() => { if (fetchId !== fetchIdRef.current) return; setProposalData(null); })
+      .catch((err) => { if (fetchId !== fetchIdRef.current) return; void logError('fieldReviewDrawer.fetchProposalData', err, { taskId: task?.id }); setProposalData(null); })
       .finally(() => { if (fetchId !== fetchIdRef.current) return; setLoadingProposal(false); });
   }, [task?.id]);
 

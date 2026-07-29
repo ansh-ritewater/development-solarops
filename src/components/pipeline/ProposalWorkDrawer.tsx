@@ -12,6 +12,7 @@ import { doc, getDoc }        from 'firebase/firestore';
 import { db }                 from '@/firebase/config';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
+import { logError } from '@/utils/logError';
 import type { Task, ProposalStageData, SurveyStageData } from '@/types';
 
 interface ProposalWorkDrawerProps {
@@ -85,7 +86,7 @@ export function ProposalWorkDrawer({ task, onClose }: ProposalWorkDrawerProps) {
         if (snap.exists()) setExistingData(snap.data() as ProposalStageData);
         else setExistingData(null);
       })
-      .catch(() => { if (fetchId !== fetchIdRef.current) return; setExistingData(null); })
+      .catch((err) => { if (fetchId !== fetchIdRef.current) return; void logError('proposalWorkDrawer.fetchExistingData', err, { taskId: task?.id }); setExistingData(null); })
       .finally(() => { if (fetchId !== fetchIdRef.current) return; setLoadingExisting(false); });
     getDoc(doc(db, 'tasks', task.id, 'stages', 'survey'))
       .then((snap) => {
@@ -93,14 +94,14 @@ export function ProposalWorkDrawer({ task, onClose }: ProposalWorkDrawerProps) {
         if (snap.exists()) setSurveyData(snap.data() as SurveyStageData);
         else setSurveyData(null);
       })
-      .catch(() => { if (fetchId !== fetchIdRef.current) return; setSurveyData(null); });
+      .catch((err) => { if (fetchId !== fetchIdRef.current) return; void logError('proposalWorkDrawer.fetchSurveyData', err, { taskId: task?.id }); setSurveyData(null); });
     getDoc(doc(db, 'tasks', task.id, 'stages', 'field_review'))
       .then((snap) => {
         if (fetchId !== fetchIdRef.current) return;
         if (snap.exists()) setFieldReviewData(snap.data() as FieldReviewDecisionData);
         else setFieldReviewData(null);
       })
-      .catch(() => { if (fetchId !== fetchIdRef.current) return; setFieldReviewData(null); });
+      .catch((err) => { if (fetchId !== fetchIdRef.current) return; void logError('proposalWorkDrawer.fetchFieldReviewData', err, { taskId: task?.id }); setFieldReviewData(null); });
   }, [task?.id]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -151,6 +152,7 @@ export function ProposalWorkDrawer({ task, onClose }: ProposalWorkDrawerProps) {
           })
             .then((result) => ({ url: result.url, name: file.name }))
             .catch((err) => {
+              void logError('proposalWorkDrawer.fileUpload', err, { taskId: task?.id });
               throw new Error(`Failed to upload "${file.name}": ${err instanceof Error ? err.message : 'unknown error'}`);
             })
         ),

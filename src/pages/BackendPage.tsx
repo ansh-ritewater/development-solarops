@@ -8,6 +8,7 @@ import { useBackendTasks, useLoadMoreBackendHistory } from '@/hooks/useBackendTa
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { BackendWorkDrawer }   from '@/components/pipeline/BackendWorkDrawer';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
+import { logError } from '@/utils/logError';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { cn }   from '@/lib/utils';
 import type { Task, StageHistoryEntry, FieldDefinition, FieldType, ProposalStageData } from '@/types';
@@ -184,7 +185,7 @@ function BackendHistoryDetailContent({ task, onClose }: { task: Task | null; onC
           submittedByName:   (d['submittedByName']   as string) ?? '',
         });
       })
-      .catch(() => {});
+      .catch((err) => void logError('backendPage.fetchStageData', err, { taskId: task.id }));
 
     getDoc(doc(db, 'tasks', task.id, 'stages', 'proposal'))
       .then((snap) => {
@@ -192,7 +193,7 @@ function BackendHistoryDetailContent({ task, onClose }: { task: Task | null; onC
           setProposalDoc(snap.data() as ProposalStageData);
         }
       })
-      .catch(() => {});
+      .catch((err) => void logError('backendPage.fetchStageData', err, { taskId: task.id }));
   }, [task?.id]);
 
   if (!task) return null;

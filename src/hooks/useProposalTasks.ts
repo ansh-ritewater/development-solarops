@@ -8,6 +8,7 @@ import { db }           from '@/firebase/config';
 import { useAuthStore } from '@/store/authStore';
 import { useTaskStore } from '@/store/taskStore';
 import { useStageTaskList } from '@/hooks/useStageTaskList';
+import { logError } from '@/utils/logError';
 import type { Task, PipelineStage, StageHistoryEntry, JourneyStepAnswer } from '@/types';
 
 function docToProposalTask(d: { id: string; data: () => Record<string, unknown> }): Task {
@@ -177,6 +178,7 @@ export function useProposalTasks() {
       setProposalHistoryLastDoc(snap.docs[snap.docs.length - 1] ?? null);
     }).catch((err) => {
       console.error('[useProposalTasks] history error:', err);
+      void logError('useProposalTasks.listener', err, {});
       setProposalHistoryLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

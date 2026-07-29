@@ -14,6 +14,7 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db }                 from '@/firebase/config';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
+import { logError } from '@/utils/logError';
 import type { Task, SurveyStageData, ProposalStageData } from '@/types';
 
 interface DocumentsWorkDrawerProps {
@@ -63,8 +64,9 @@ export function DocumentsWorkDrawer({ task, onClose }: DocumentsWorkDrawerProps)
       } else {
         setProposalDoc(null);
       }
-    }).catch(() => {
+    }).catch((err) => {
       if (fetchId !== fetchIdRef.current) return;
+      void logError('documentsWorkDrawer.fetchData', err, { taskId: task?.id });
       setSurveyData(null);
       setProposalDoc(null);
     });

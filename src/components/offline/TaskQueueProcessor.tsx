@@ -65,6 +65,7 @@ async function uploadFieldPhotos(
           return await uploadIfBase64(url, taskNum, 'field', i, fieldId, engineerCode, engineerName);
         } catch (err) {
           console.error(`[Queue] Photo upload failed for field ${fieldId} index ${i}:`, err);
+          void logError('offlineQueue.photoUploadFailed', err, { fieldId, index: i });
           return url; // keep original URL on failure
         }
       })
