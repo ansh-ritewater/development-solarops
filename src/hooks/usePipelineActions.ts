@@ -9,6 +9,7 @@ import { useToast }     from '@/components/ui/toast';
 import { assignLeastLoaded } from '@/utils/findLeastLoadedUser';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { computePriorityScore } from '@/utils/taskScoring';
+import { logError } from '@/utils/logError';
 import type { Task, PipelineStage, ProposalStageData, JourneyStepDefinition, JourneyStepAnswer, RemarkEntry } from '@/types';
 
 function cleanStep(step: JourneyStepAnswer): Record<string, unknown> {
@@ -212,6 +213,7 @@ export function usePipelineActions() {
       );
     } catch (err) {
       console.error('[submitProposal] failed:', err);
+      void logError('pipeline.submitProposal', err, { taskId });
       const alreadySubmitted = err instanceof Error &&
         err.message.startsWith('This proposal was already submitted');
       showToast(
@@ -568,6 +570,7 @@ export function usePipelineActions() {
       }
     } catch (err) {
       console.error('[submitFieldReviewDecision] failed:', err);
+      void logError('pipeline.fieldReviewDecision', err, { taskId });
       showToast('Failed to submit decision. Try again.', 'error');
       throw err;
     }
@@ -691,6 +694,7 @@ export function usePipelineActions() {
       );
     } catch (err) {
       console.error('[submitDocuments] failed:', err);
+      void logError('pipeline.submitDocuments', err, { taskId });
       showToast('Failed to submit documents. Try again.', 'error');
       throw err;
     }
@@ -761,6 +765,7 @@ export function usePipelineActions() {
       });
     } catch (err) {
       console.error('[completeJourneyStep] failed:', err);
+      void logError('pipeline.completeJourneyStep', err, { taskId });
       showToast('Failed to save step. Try again.', 'error');
       throw err;
     }
@@ -844,6 +849,7 @@ export function usePipelineActions() {
       showToast('🎉 Lead marked as Converted!', 'success');
     } catch (err) {
       console.error('[markLeadConverted] failed:', err);
+      void logError('pipeline.markLeadConverted', err, { taskId });
       showToast('Failed to convert lead. Try again.', 'error');
       throw err;
     }

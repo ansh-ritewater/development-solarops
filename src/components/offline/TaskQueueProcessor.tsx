@@ -14,6 +14,7 @@ import { db }                       from '@/firebase/config';
 import { assignLeastLoaded }        from '@/utils/findLeastLoadedUser';
 import { resolveCorrectionReturn }  from '@/hooks/usePipelineActions';
 import { computePriorityScore }     from '@/utils/taskScoring';
+import { logError }               from '@/utils/logError';
 import type { QueuedTaskUpdate, PipelineStage } from '@/types';
 
 function base64ToFile(base64: string, filename: string): File {
@@ -101,6 +102,7 @@ export function TaskQueueProcessor() {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         await updateQueueItem(item.id!, { attempts: item.attempts + 1, lastError: message });
+        void logError('offlineQueue.syncFailed', err, { taskId: item.taskId, attempts: item.attempts });
         failed++;
         continue;
       }

@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Users, BarChart2, FileText, Settings,
+  LayoutDashboard, ClipboardList, Users, BarChart2, FileText, Settings, AlertCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -22,11 +22,12 @@ const backendItems = [
 ];
 
 const adminItems = [
-  { to: '/dashboard', label: 'Home',     Icon: LayoutDashboard },
-  { to: '/tasks',     label: 'Tasks',    Icon: ClipboardList },
-  { to: '/team',      label: 'Team',     Icon: Users },
-  { to: '/template',  label: 'Template', Icon: FileText },
-  { to: '/reports',   label: 'Reports',  Icon: BarChart2 },
+  { to: '/dashboard',  label: 'Home',       Icon: LayoutDashboard },
+  { to: '/tasks',      label: 'Tasks',      Icon: ClipboardList },
+  { to: '/team',       label: 'Team',       Icon: Users },
+  { to: '/template',   label: 'Template',   Icon: FileText },
+  { to: '/reports',    label: 'Reports',    Icon: BarChart2 },
+  { to: '/error-logs', label: 'Error Logs', Icon: AlertCircle },
 ];
 
 const backendManagerItems = [

@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/components/ui/toast';
 import { computePriorityScore } from '@/utils/taskScoring';
 import { enqueueTaskUpdate } from '@/hooks/useTaskOfflineQueue';
+import { logError } from '@/utils/logError';
 import type { TaskStatus, FieldType, FieldDefinition, PipelineStage } from '@/types';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -64,6 +65,8 @@ export function useTaskSubmit() {
         if (attempt < 3) {
           console.warn(`[useTaskSubmit] Retrying main write, attempt ${attempt + 1} of 3`);
           await wait(RETRY_DELAYS[attempt - 1]);
+        } else {
+          void logError('taskSubmit.mainWrite', err, { taskId, attempt });
         }
       }
     }
@@ -188,6 +191,8 @@ export function useTaskSubmit() {
           if (attempt < 3) {
             console.warn(`[Pipeline] Retrying survey → proposal transition, attempt ${attempt + 1} of 3`);
             await wait(RETRY_DELAYS[attempt - 1]);
+          } else {
+            void logError('taskSubmit.pipelineTransition', err, { taskId, attempt });
           }
         }
       }
@@ -245,6 +250,7 @@ export function useTaskSubmit() {
       });
     } catch (err) {
       console.error('[Firestore] Failed to write update history:', err);
+      void logError('taskSubmit.updateHistory', err, { taskId });
     }
 
     showToast('Update submitted', 'success');
