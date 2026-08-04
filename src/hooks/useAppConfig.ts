@@ -46,6 +46,7 @@ export function useAppConfig() {
             districtsByState:         (data['districtsByState'] ?? {}) as Record<string, string[]>,
             engineerCounts:           (data['engineerCounts'] as AppConfig['engineerCounts']) ?? {},
             districtCounts:           (data['districtCounts'] as AppConfig['districtCounts']) ?? {},
+            saleClosedConfig:         data['saleClosedConfig'] as import('@/types').SaleClosedConfig | undefined,
           });
         }
         setLoading(false);

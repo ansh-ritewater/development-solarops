@@ -15,6 +15,7 @@ import { assignLeastLoaded }        from '@/utils/findLeastLoadedUser';
 import { resolveCorrectionReturn }  from '@/hooks/usePipelineActions';
 import { computePriorityScore }     from '@/utils/taskScoring';
 import { logError }               from '@/utils/logError';
+import { computeSaleClosedEvidence } from '@/utils/computeSaleClosed';
 import type { QueuedTaskUpdate, PipelineStage } from '@/types';
 
 function base64ToFile(base64: string, filename: string): File {
@@ -157,6 +158,31 @@ export function TaskQueueProcessor() {
     const finalCompletionPhotos = rawCompletionPhotos.filter((u): u is string => u !== null);
 
     const taskRef = doc(db, 'tasks', item.taskId);
+
+    // Read the current sale-closed field mapping and the task's existing
+    // saleClosedSource once, up front, so the write below can carry the
+    // recomputed flag without ever overwriting a manual admin override —
+    // same rule as useTaskSubmit.ts and submitDocuments.
+    const cfgSnap = await getDoc(doc(db, 'appConfig', 'global'));
+    const saleClosedConfig = cfgSnap.data()?.['saleClosedConfig'] as
+      import('@/types').SaleClosedConfig | undefined;
+    const curTaskSnap = await getDoc(taskRef);
+    const curTask = curTaskSnap.data() ?? {};
+    const existingSource = curTask['saleClosedSource'] as
+      'auto' | 'manual' | null | undefined;
+    const newSaleClosed = computeSaleClosedEvidence(
+      {
+        fieldAnswers:    item.payload.fieldAnswers,
+        fieldPhotos:     finalFieldPhotos,
+        documentAnswers: curTask['documentAnswers'],
+        documentPhotos:  curTask['documentPhotos'],
+      },
+      saleClosedConfig,
+    );
+    const saleClosedUpdate = existingSource === 'manual'
+      ? {}
+      : { saleClosed: newSaleClosed, saleClosedSource: 'auto' as const };
+
     await updateDoc(taskRef, {
       status:           item.payload.status,
       blockedReason:    item.payload.blockedReason ?? null,
@@ -170,6 +196,7 @@ export function TaskQueueProcessor() {
       submittedBy:      currentUser?.uid ?? '',
       submittedAt:      serverTimestamp(),
       updatedAt:        serverTimestamp(),
+      ...saleClosedUpdate,
     });
 
     if (!item.historyWritten) {

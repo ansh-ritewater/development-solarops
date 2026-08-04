@@ -44,11 +44,13 @@ const PIPELINE_BADGE: Partial<Record<PipelineStage, { label: string; cls: string
 
 type Filter = 'all' | TaskStatus | 'follow_up' | 'overdue' | 'archived' | 'dropped' | 'converted' |
   'pipeline_proposal' | 'pipeline_field_review' | 'pipeline_documents' | 'pipeline_backend' | 'unassigned' | 'my_tasks' |
-  'fe_review' | 'fe_documents' | 'fe_pipeline' | 'fe_converted' | 'fe_dropped' | 'fe_survey_done' | 'needs_correction';
+  'fe_review' | 'fe_documents' | 'fe_pipeline' | 'fe_converted' | 'fe_dropped' | 'fe_survey_done' | 'needs_correction' |
+  'sales_closed';
 
 const FILTER_TABS: { key: Filter; label: string; adminOnly?: boolean; fieldOnly?: boolean }[] = [
   { key: 'all',              label: 'All'              },
   { key: 'needs_correction', label: '↩ Needs Correction' },
+  { key: 'sales_closed',     label: '💰 Sales Closed', adminOnly: true },
   { key: 'my_tasks',         label: '👤 My Leads', adminOnly: true },
   { key: 'pending',     label: 'Pending'     },
   { key: 'in_progress', label: 'In Progress' },
@@ -139,23 +141,26 @@ function taskMatchesActiveFilters(t: Task, ctx: FilterCtx): boolean {
   if ((isAdmin || isViewOnly) && leadSourceFilter && t.leadSource !== leadSourceFilter) return false;
 
   if (filter === 'needs_correction')      return !!t.correctionReturnTo;
+  // Sales Closed intentionally includes dropped leads — a lead that closed
+  // then got dropped is exactly the anomaly this tab exists to surface.
+  if (filter === 'sales_closed')          return !!t.saleClosed;
   if (filter === 'dropped')               return t.pipelineStage === 'dropped';
   if (filter === 'converted')             return t.pipelineStage === 'completed';
-  if (filter === 'pipeline_proposal')     return t.pipelineStage === 'proposal'     && !t.correctionReturnTo;
-  if (filter === 'pipeline_field_review') return t.pipelineStage === 'field_review' && !t.correctionReturnTo;
-  if (filter === 'pipeline_documents')    return t.pipelineStage === 'documents'    && !t.correctionReturnTo;
-  if (filter === 'pipeline_backend')      return t.pipelineStage === 'backend'      && !t.correctionReturnTo;
+  if (filter === 'pipeline_proposal')     return t.pipelineStage === 'proposal';
+  if (filter === 'pipeline_field_review') return t.pipelineStage === 'field_review';
+  if (filter === 'pipeline_documents')    return t.pipelineStage === 'documents';
+  if (filter === 'pipeline_backend')      return t.pipelineStage === 'backend';
   if (filter === 'unassigned') return (
     (t.pipelineStage === 'proposal' && !t.proposalAssignedTo) ||
     (t.pipelineStage === 'backend'  && !t.backendAssignedTo)
   );
-  if (filter === 'pending')     return t.status === 'pending'     && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed' && !t.correctionReturnTo;
-  if (filter === 'in_progress') return t.status === 'in_progress' && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed' && !t.correctionReturnTo;
-  if (filter === 'blocked')     return t.status === 'blocked'     && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed' && !t.correctionReturnTo;
+  if (filter === 'pending')     return t.status === 'pending'     && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed';
+  if (filter === 'in_progress') return t.status === 'in_progress' && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed';
+  if (filter === 'blocked')     return t.status === 'blocked'     && t.pipelineStage !== 'dropped' && t.pipelineStage !== 'completed';
   if (filter === 'fe_survey_done') return t.status === 'completed' && t.assignedTo === currentUserUid;
-  if (filter === 'fe_review')    return t.pipelineStage === 'field_review' && t.assignedTo === currentUserUid && !t.correctionReturnTo;
-  if (filter === 'fe_documents') return t.pipelineStage === 'documents'    && t.assignedTo === currentUserUid && !t.correctionReturnTo;
-  if (filter === 'fe_pipeline')  return !!(t.pipelineStage && t.pipelineStage !== 'survey' && t.pipelineStage !== 'field_review' && t.pipelineStage !== 'documents' && t.pipelineStage !== 'completed' && t.pipelineStage !== 'dropped' && t.assignedTo === currentUserUid) && !t.correctionReturnTo;
+  if (filter === 'fe_review')    return t.pipelineStage === 'field_review' && t.assignedTo === currentUserUid;
+  if (filter === 'fe_documents') return t.pipelineStage === 'documents'    && t.assignedTo === currentUserUid;
+  if (filter === 'fe_pipeline')  return !!(t.pipelineStage && t.pipelineStage !== 'survey' && t.pipelineStage !== 'field_review' && t.pipelineStage !== 'documents' && t.pipelineStage !== 'completed' && t.pipelineStage !== 'dropped' && t.assignedTo === currentUserUid);
   if (filter === 'fe_converted') return t.pipelineStage === 'completed' && t.assignedTo === currentUserUid;
   if (filter === 'fe_dropped')   return t.pipelineStage === 'dropped'   && t.assignedTo === currentUserUid;
   if (filter === 'my_tasks')     return true;
@@ -456,6 +461,11 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
             </div>
           ) : null;
         })()}
+        {task.saleClosed === true && task.pipelineStage === 'dropped' && (
+          <div className="mt-1 flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-0.5 w-fit bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-300">
+            ⚠ Dropped after being closed
+          </div>
+        )}
         {task.pipelineStage === 'proposal' && !task.proposalAssignedTo && (
           <span className="mt-1 inline-flex rounded-full bg-red-100 text-red-600 border border-red-200 px-2 py-0.5 text-[10px] font-semibold w-fit">
             ⚠️ Unassigned
@@ -503,7 +513,7 @@ export function TasksPage() {
 
   const { currentUser } = useAuthStore();
   const { subscribeToFilter } = useTasks();
-  const { tabCounts } = useTabCounts();
+  const { tabCounts, refreshTabCounts } = useTabCounts();
   const { config } = useAppConfig();
   const pc = config.pipelineCounts;
   const { archivedTasks, loading: archivedLoading, loadArchivedTasks } = useArchivedTasks();
@@ -578,6 +588,16 @@ export function TasksPage() {
   const [showCreate,       setShowCreate]       = useState(false);
   const [showBulk,         setShowBulk]         = useState(false);
   const [detailTask,       setDetailTask]       = useState<Task | null>(null);
+
+  useEffect(() => {
+    if (!detailTask) return;
+    const fresh = tasks.find((t) => t.id === detailTask.id);
+    if (fresh && fresh !== detailTask) {
+      setDetailTask(fresh);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, detailTask]);
+
   const [updateTask,       setUpdateTask]       = useState<Task | null>(null);
   const [adminUpdateTask,  setAdminUpdateTask]  = useState<Task | null>(null);
   const [fieldReviewTask,  setFieldReviewTask]  = useState<Task | null>(null);
@@ -643,13 +663,14 @@ export function TasksPage() {
       c['follow_up']        = tabCounts['follow_up']        ?? 0;
       c['overdue']          = tabCounts['overdue']          ?? 0;
       c['needs_correction'] = tabCounts['needs_correction'] ?? 0;
+      c['sales_closed']     = tabCounts['sales_closed']     ?? 0;
     } else {
       tasks.forEach((t) => {
         c['all']++;
         const isTerminal  = t.pipelineStage === 'dropped' || t.pipelineStage === 'completed';
         const isStatusTab = t.status === 'blocked' || t.status === 'pending' || t.status === 'in_progress';
-        if (isStatusTab && (isTerminal || !!t.correctionReturnTo)) {
-          // terminal-stage and correction-return tasks: excluded from status-tab counts
+        if (isStatusTab && isTerminal) {
+          // terminal-stage tasks excluded from status-tab counts
         } else {
           c[t.status]++;
         }
@@ -671,8 +692,8 @@ export function TasksPage() {
       t.status === 'completed' &&
       t.assignedTo === currentUser?.uid && !t.archived
     ).length;
-    c['fe_review']    = tasks.filter((t) => t.pipelineStage === 'field_review' && t.assignedTo === currentUser?.uid && !t.archived && !t.correctionReturnTo).length;
-    c['fe_documents'] = tasks.filter((t) => t.pipelineStage === 'documents' && t.assignedTo === currentUser?.uid && !t.archived && !t.correctionReturnTo).length;
+    c['fe_review']    = tasks.filter((t) => t.pipelineStage === 'field_review' && t.assignedTo === currentUser?.uid && !t.archived).length;
+    c['fe_documents'] = tasks.filter((t) => t.pipelineStage === 'documents' && t.assignedTo === currentUser?.uid && !t.archived).length;
     c['fe_pipeline']  = tasks.filter((t) =>
       t.pipelineStage &&
       t.pipelineStage !== 'survey' &&
@@ -680,7 +701,7 @@ export function TasksPage() {
       t.pipelineStage !== 'documents' &&
       t.pipelineStage !== 'completed' &&
       t.pipelineStage !== 'dropped' &&
-      t.assignedTo === currentUser?.uid && !t.archived && !t.correctionReturnTo
+      t.assignedTo === currentUser?.uid && !t.archived
     ).length;
     c['fe_converted'] = tasks.filter((t) => t.pipelineStage === 'completed' && t.assignedTo === currentUser?.uid && !t.archived).length;
     c['fe_dropped']   = tasks.filter((t) => t.pipelineStage === 'dropped'   && t.assignedTo === currentUser?.uid && !t.archived).length;
@@ -892,7 +913,7 @@ export function TasksPage() {
         {FILTER_TABS.filter(({ adminOnly, fieldOnly, key }) => {
           if (adminOnly && !isAdmin && !isViewOnly) return false;
           if (fieldOnly && (isAdmin || isViewOnly)) return false;
-          const statusTabs = ['all','needs_correction','my_tasks','pending','in_progress','completed','blocked','follow_up','overdue','archived','fe_review','fe_documents','fe_pipeline','fe_converted','fe_dropped','fe_survey_done'];
+          const statusTabs = ['all','needs_correction','sales_closed','my_tasks','pending','in_progress','completed','blocked','follow_up','overdue','archived','fe_review','fe_documents','fe_pipeline','fe_converted','fe_dropped','fe_survey_done'];
           return statusTabs.includes(key);
         }).map(({ key, label }) => {
           const count = counts[key as string] ?? 0;
@@ -1414,6 +1435,7 @@ export function TasksPage() {
         onClose={() => setDetailTask(null)}
         onUpdate={!isAdmin ? (t) => { setDetailTask(null); setUpdateTask(t); } : undefined}
         onAdminUpdate={isAdmin ? (t) => { setDetailTask(null); setAdminUpdateTask(t); } : undefined}
+        onSaleClosedChange={refreshTabCounts}
       />
 
       {/* Field engineer update drawer */}

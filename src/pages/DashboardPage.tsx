@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { collection, getDocs, limit, orderBy, query, Timestamp, where } from 'firebase/firestore';
+import { collection, getCountFromServer, getDocs, limit, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuthStore } from '@/store/authStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -65,13 +65,17 @@ const STATUS_ROW_BORDER: Record<TaskStatus, string> = {
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, borderColour, loading,
-}: { label: string; value: number; borderColour: string; loading?: boolean }) {
+  label, value, borderColour, loading, onClick,
+}: { label: string; value: number; borderColour: string; loading?: boolean; onClick?: () => void }) {
   return (
-    <div className={cn(
-      'rounded-xl p-4 bg-white border border-gray-100 shadow-sm border-l-4',
-      borderColour,
-    )}>
+    <div
+      className={cn(
+        'rounded-xl p-4 bg-white border border-gray-100 shadow-sm border-l-4',
+        borderColour,
+        onClick && 'cursor-pointer hover:shadow-md transition-shadow',
+      )}
+      onClick={onClick}
+    >
       {loading ? (
         <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mb-1" />
       ) : (
@@ -236,8 +240,8 @@ export function DashboardPage() {
 
   // ── Status counts for admin (full Firestore query, not 50-task store) ────────
   const [statusCounts, setStatusCounts] = useState<{
-    pending: number; in_progress: number; completed: number; blocked: number;
-  }>({ pending: 0, in_progress: 0, completed: 0, blocked: 0 });
+    pending: number; in_progress: number; completed: number; blocked: number; total: number;
+  }>({ pending: 0, in_progress: 0, completed: 0, blocked: 0, total: 0 });
   const [statusCountsLoading, setStatusCountsLoading] = useState(true);
 
   useEffect(() => {
@@ -245,17 +249,19 @@ export function DashboardPage() {
     setStatusCountsLoading(true);
     async function loadStatusCounts() {
       try {
-        const [p, ip, c, b] = await Promise.all([
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'pending'),     limit(1000))),
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'in_progress'), limit(1000))),
+        const [p, ip, c, b, t] = await Promise.all([
+          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'pending'),     where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
+          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'in_progress'), where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
           getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'completed'),   limit(1000))),
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'blocked'),     limit(1000))),
+          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'blocked'),     where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
+          getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false))),
         ]);
         setStatusCounts({
           pending:     p.size,
           in_progress: ip.size,
           completed:   c.size,
           blocked:     b.size,
+          total:       t.data().count,
         });
       } catch (err) {
         console.error('[Dashboard] loadStatusCounts failed:', err);
@@ -266,11 +272,33 @@ export function DashboardPage() {
     loadStatusCounts();
   }, [showAdminView]);
 
+  // ── Sales Closed count (admin/view_only — excludes dropped, mirrors the
+  // Tasks-page "Sales Closed" tab badge count) ────────────────────────────────
+  const [saleClosedCount, setSaleClosedCount] = useState(0);
+  const [saleClosedCountLoading, setSaleClosedCountLoading] = useState(true);
+
+  useEffect(() => {
+    if (!showAdminView) return;
+    setSaleClosedCountLoading(true);
+    getCountFromServer(query(
+      collection(db, 'tasks'),
+      where('archived',      '==', false),
+      where('saleClosed',    '==', true),
+      where('pipelineStage', '!=', 'dropped'),
+    )).then((snap) => {
+      setSaleClosedCount(snap.data().count);
+    }).catch((err) => {
+      console.error('[Dashboard] saleClosedCount fetch failed:', err);
+    }).finally(() => {
+      setSaleClosedCountLoading(false);
+    });
+  }, [showAdminView]);
+
   // ── Counts (admin uses pipelineCounts from appConfig; field uses tasks) ────
   const counts = useMemo(() => {
     if (showAdminView) {
       return {
-        total:       statusCounts.pending + statusCounts.in_progress + statusCounts.completed + statusCounts.blocked,
+        total:       statusCounts.total,
         pending:     statusCounts.pending,
         in_progress: statusCounts.in_progress,
         completed:   statusCounts.completed,
@@ -324,20 +352,16 @@ export function DashboardPage() {
   }, [tasks]);
 
   // ── Pipeline counts (admin — from appConfig denormalized counters) ─────────
-  const [correctionCounts, setCorrectionCounts] = useState<Record<string, number>>({});
-  const [correctionCountsTruncated, setCorrectionCountsTruncated] = useState(false);
-
-  // Correction-affected tasks are subtracted from each stage's displayed number
-  // so the grid matches what the corresponding Tasks-page tab would show.
-  // completed/dropped never have a pending correction but are guarded for safety.
+  // Raw counters — correction-return tasks are no longer subtracted here,
+  // matching the Tasks-page pipeline-stage tabs which also stopped excluding them.
   const pipelineCounts: Record<string, number> | null = showAdminView ? {
-    survey:       Math.max(0, (pc?.survey       ?? 0) - (correctionCounts['survey']       ?? 0)),
-    proposal:     Math.max(0, (pc?.proposal     ?? 0) - (correctionCounts['proposal']     ?? 0)),
-    field_review: Math.max(0, (pc?.field_review ?? 0) - (correctionCounts['field_review'] ?? 0)),
-    documents:    Math.max(0, (pc?.documents    ?? 0) - (correctionCounts['documents']    ?? 0)),
-    backend:      Math.max(0, (pc?.backend      ?? 0) - (correctionCounts['backend']      ?? 0)),
-    completed:    pc?.completed ?? 0,
-    dropped:      pc?.dropped   ?? 0,
+    survey:       pc?.survey       ?? 0,
+    proposal:     pc?.proposal     ?? 0,
+    field_review: pc?.field_review ?? 0,
+    documents:    pc?.documents    ?? 0,
+    backend:      pc?.backend      ?? 0,
+    completed:    pc?.completed    ?? 0,
+    dropped:      pc?.dropped      ?? 0,
   } : null;
 
   // ── Pipeline Activity Today (admin — direct Firestore query) ────────────────
@@ -383,29 +407,6 @@ export function DashboardPage() {
       activity.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
       setTodayActivity(activity.slice(0, 20));
     }).catch(console.error);
-  }, [showAdminView]);
-
-  useEffect(() => {
-    if (!showAdminView) return;
-    (async () => {
-      try {
-        const snap = await getDocs(query(
-          collection(db, 'tasks'),
-          where('archived', '==', false),
-          where('correctionReturnTo', '!=', null),
-          limit(500),
-        ));
-        const counts: Record<string, number> = {};
-        snap.docs.forEach((d) => {
-          const stage = (d.data()['pipelineStage'] as string) ?? 'survey';
-          counts[stage] = (counts[stage] ?? 0) + 1;
-        });
-        setCorrectionCounts(counts);
-        setCorrectionCountsTruncated(snap.size === 500);
-      } catch (err) {
-        console.error('[Dashboard] correction counts fetch failed:', err);
-      }
-    })();
   }, [showAdminView]);
 
   // ── Next due task (field) ───────────────────────────────────────────────────
@@ -528,11 +529,18 @@ export function DashboardPage() {
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <StatCard label="Total"       value={counts.total}       borderColour="border-l-brand-blue"  loading={statusCountsLoading} />
-          <StatCard label="Pending"     value={counts.pending}     borderColour="border-l-gray-300"    loading={statusCountsLoading} />
-          <StatCard label="In Progress" value={counts.in_progress} borderColour="border-l-amber-400"   loading={statusCountsLoading} />
-          <StatCard label="Completed"   value={counts.completed}   borderColour="border-l-brand-green" loading={statusCountsLoading} />
-          <StatCard label="Blocked"     value={counts.blocked}     borderColour="border-l-brand-red"   loading={statusCountsLoading} />
+          <StatCard label="Total"       value={counts.total}       borderColour="border-l-brand-blue"  loading={statusCountsLoading} onClick={() => navigate('/tasks', { state: { filter: 'all' } })} />
+          <StatCard label="Pending"     value={counts.pending}     borderColour="border-l-gray-300"    loading={statusCountsLoading} onClick={() => navigate('/tasks', { state: { filter: 'pending' } })} />
+          <StatCard label="In Progress" value={counts.in_progress} borderColour="border-l-amber-400"   loading={statusCountsLoading} onClick={() => navigate('/tasks', { state: { filter: 'in_progress' } })} />
+          <StatCard label="Completed"   value={counts.completed}   borderColour="border-l-brand-green" loading={statusCountsLoading} onClick={() => navigate('/tasks', { state: { filter: 'completed' } })} />
+          <StatCard label="Blocked"     value={counts.blocked}     borderColour="border-l-brand-red"   loading={statusCountsLoading} onClick={() => navigate('/tasks', { state: { filter: 'blocked' } })} />
+          <StatCard
+            label="Sales Closed"
+            value={saleClosedCount}
+            borderColour="border-l-emerald-500"
+            loading={saleClosedCountLoading}
+            onClick={() => navigate('/tasks', { state: { filter: 'sales_closed' } })}
+          />
         </div>
 
         {/* Online users */}
@@ -563,24 +571,23 @@ export function DashboardPage() {
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
               Pipeline Overview
             </h2>
-            {correctionCountsTruncated && (
-              <p className="text-xs text-amber-600">
-                500+ tasks with pending corrections — stage counts show partial adjustment.
-              </p>
-            )}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { stage: 'survey',       label: 'Survey',        icon: '📋', color: 'border-l-gray-400'   },
-                { stage: 'proposal',     label: 'Proposal',      icon: '📄', color: 'border-l-purple-400' },
-                { stage: 'field_review', label: 'Field Review',  icon: '👁️', color: 'border-l-blue-400'   },
-                { stage: 'documents',    label: 'Documents',     icon: '📎', color: 'border-l-teal-400'   },
-                { stage: 'backend',      label: 'Backend',       icon: '⚙️', color: 'border-l-orange-400' },
-                { stage: 'completed',    label: 'Converted',     icon: '✅', color: 'border-l-green-600'  },
-                { stage: 'dropped',      label: 'Dropped',       icon: '❌', color: 'border-l-red-400'    },
-              ].map(({ stage, label, icon, color }) => (
+                { stage: 'proposal',     label: 'Proposal',      icon: '📄', color: 'border-l-purple-400', filter: 'pipeline_proposal'     },
+                { stage: 'field_review', label: 'Field Review',  icon: '👁️', color: 'border-l-blue-400',   filter: 'pipeline_field_review' },
+                { stage: 'documents',    label: 'Documents',     icon: '📎', color: 'border-l-teal-400',   filter: 'pipeline_documents'    },
+                { stage: 'backend',      label: 'Backend',       icon: '⚙️', color: 'border-l-orange-400', filter: 'pipeline_backend'      },
+                { stage: 'completed',    label: 'Converted',     icon: '✅', color: 'border-l-green-600',  filter: 'converted'             },
+                { stage: 'dropped',      label: 'Dropped',       icon: '❌', color: 'border-l-red-400',    filter: 'dropped'               },
+              ].map(({ stage, label, icon, color, filter }) => (
                 <div
                   key={stage}
-                  className={`rounded-xl p-3 bg-white border border-gray-100 shadow-sm border-l-4 ${color}`}
+                  className={cn(
+                    `rounded-xl p-3 bg-white border border-gray-100 shadow-sm border-l-4 ${color}`,
+                    filter && 'cursor-pointer hover:shadow-md transition-shadow',
+                  )}
+                  onClick={filter ? () => navigate('/tasks', { state: { filter } }) : undefined}
                 >
                   <p className="text-2xl font-extrabold tabular-nums text-gray-900">
                     {pipelineCounts[stage] ?? 0}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Plus, Trash2, ChevronUp, ChevronDown, Save, Check, X, ChevronRight, Pencil, Route, FileText } from 'lucide-react';
 import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
-import { backfillEngineerDistrictCounts } from '@/firebase/initAppConfig';
+import { backfillEngineerDistrictCounts, reconcileSaleClosed } from '@/firebase/initAppConfig';
 import { db }                 from '@/firebase/config';
 import { toTitleCase }        from '@/utils/districtUtils';
 import { useAppConfig }       from '@/hooks/useAppConfig';
@@ -562,6 +562,185 @@ function ApplicationJourneyEditor() {
   );
 }
 
+// ─── Sale Closed Mapping Editor ───────────────────────────────────────────────
+
+type SaleClosedFormKey = 'survey' | 'documents';
+type SaleClosedRoleKey = 'typeFieldId' | 'amountFieldId' | 'imageFieldId';
+
+function fieldOptionsFor(template: FieldDefinition[]): { fieldId: string; label: string }[] {
+  return template
+    .filter((f) => f.type !== 'section_header')
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((f) => ({ fieldId: f.fieldId, label: f.label || '(untitled)' }));
+}
+
+function SaleClosedMappingEditor() {
+  const { config, loading }       = useAppConfig();
+  const { saveSaleClosedConfig }  = useTemplateActions();
+  const { currentUser }           = useAuthStore();
+  const isViewOnly                = currentUser?.role === 'view_only';
+
+  const [surveyType,   setSurveyType]   = useState<string>('');
+  const [surveyAmount, setSurveyAmount] = useState<string>('');
+  const [surveyImage,  setSurveyImage]  = useState<string>('');
+  const [docsType,     setDocsType]     = useState<string>('');
+  const [docsAmount,   setDocsAmount]   = useState<string>('');
+  const [docsImage,    setDocsImage]    = useState<string>('');
+  const [dirty,  setDirty]  = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !dirty) {
+      const saved = config.saleClosedConfig;
+      setSurveyType(saved?.survey.typeFieldId     ?? '');
+      setSurveyAmount(saved?.survey.amountFieldId  ?? '');
+      setSurveyImage(saved?.survey.imageFieldId    ?? '');
+      setDocsType(saved?.documents.typeFieldId     ?? '');
+      setDocsAmount(saved?.documents.amountFieldId ?? '');
+      setDocsImage(saved?.documents.imageFieldId   ?? '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.saleClosedConfig, loading]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="h-12 animate-pulse rounded-xl bg-gray-200" />
+        ))}
+      </div>
+    );
+  }
+
+  const surveyOptions    = fieldOptionsFor(config.taskTemplate ?? []);
+  const documentsOptions = fieldOptionsFor(config.documentTemplate ?? []);
+
+  function isMissing(fieldId: string, options: { fieldId: string }[]): boolean {
+    return fieldId !== '' && !options.some((o) => o.fieldId === fieldId);
+  }
+
+  function setValue(form: SaleClosedFormKey, role: SaleClosedRoleKey, value: string) {
+    const setterMap: Record<SaleClosedFormKey, Record<SaleClosedRoleKey, (v: string) => void>> = {
+      survey:    { typeFieldId: setSurveyType,  amountFieldId: setSurveyAmount, imageFieldId: setSurveyImage },
+      documents: { typeFieldId: setDocsType,    amountFieldId: setDocsAmount,   imageFieldId: setDocsImage   },
+    };
+    setterMap[form][role](value);
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await saveSaleClosedConfig({
+        survey: {
+          typeFieldId:   surveyType   || null,
+          amountFieldId: surveyAmount || null,
+          imageFieldId:  surveyImage  || null,
+        },
+        documents: {
+          typeFieldId:   docsType   || null,
+          amountFieldId: docsAmount || null,
+          imageFieldId:  docsImage  || null,
+        },
+      });
+      setDirty(false);
+    } catch {
+      // error toasted in saveSaleClosedConfig
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function renderDropdown(
+    label:   string,
+    form:    SaleClosedFormKey,
+    role:    SaleClosedRoleKey,
+    value:   string,
+    options: { fieldId: string; label: string }[],
+  ) {
+    const missing = isMissing(value, options);
+    return (
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">{label}</Label>
+        <select
+          value={value}
+          disabled={isViewOnly}
+          onChange={(e) => setValue(form, role, e.target.value)}
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <option value="">— None —</option>
+          {options.map((o) => (
+            <option key={o.fieldId} value={o.fieldId}>{o.label}</option>
+          ))}
+        </select>
+        {missing && (
+          <p className="text-xs text-amber-600">
+            ⚠ Previously selected field no longer exists — please re-select.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header row */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <p className="text-sm text-gray-500 flex-1">
+          Map the fields used to detect an advance/token payment.
+        </p>
+        {!isViewOnly && (
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 h-11"
+          >
+            {saving ? (
+              <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Saving…</>
+            ) : (
+              <><Save className="h-4 w-4" />Save</>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Info banner */}
+      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 mb-5 text-sm text-blue-800">
+        <FileText className="h-4 w-4 shrink-0 mt-0.5 text-blue-500" />
+        <span>
+          Pick which questions capture the advance/token payment. A lead counts as
+          Sales Closed when Payment Type, Amount, and Image are all filled — in
+          either the Survey or the Documents form.
+        </span>
+      </div>
+
+      {/* Survey group */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 mb-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          Survey form
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {renderDropdown('Payment Type field', 'survey', 'typeFieldId',   surveyType,   surveyOptions)}
+          {renderDropdown('Amount field',       'survey', 'amountFieldId', surveyAmount, surveyOptions)}
+          {renderDropdown('Image field',        'survey', 'imageFieldId',  surveyImage,  surveyOptions)}
+        </div>
+      </div>
+
+      {/* Documents group */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          Documents form
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {renderDropdown('Payment Type field', 'documents', 'typeFieldId',   docsType,   documentsOptions)}
+          {renderDropdown('Amount field',       'documents', 'amountFieldId', docsAmount, documentsOptions)}
+          {renderDropdown('Image field',        'documents', 'imageFieldId',  docsImage,  documentsOptions)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function TemplatePage() {
@@ -586,6 +765,7 @@ export function TemplatePage() {
   const [recalculatingEngineerDistrict, setRecalculatingEngineerDistrict] = useState(false);
   const [migratingState,                setMigratingState]               = useState(false);
   const [migratingCorrections, setMigratingCorrections] = useState(false);
+  const [backfillingSaleClosed, setBackfillingSaleClosed] = useState(false);
 
   const [districtsByState,       setDistrictsByState]       = useState<Record<string, string[]>>({});
   const [newState,               setNewState]               = useState('');
@@ -961,6 +1141,23 @@ export function TemplatePage() {
       _emitToast('Failed to recalculate pipeline counts. Try again.', 'error');
     } finally {
       setRecalculating(false);
+    }
+  }
+
+  async function handleBackfillSaleClosed() {
+    if (currentUser?.role !== 'admin') return;
+    setBackfillingSaleClosed(true);
+    try {
+      const { totalScanned, updated, skippedManual } = await reconcileSaleClosed();
+      _emitToast(
+        `Scanned ${totalScanned}, updated ${updated}, skipped ${skippedManual} manual`,
+        'success',
+      );
+    } catch (err) {
+      console.error('[backfillSaleClosed] failed:', err);
+      _emitToast('Failed to backfill Sales Closed. Try again.', 'error');
+    } finally {
+      setBackfillingSaleClosed(false);
     }
   }
 
@@ -1529,6 +1726,17 @@ export function TemplatePage() {
         </div>
       </div>
 
+      {/* Sales Closed Detection */}
+      <div className="mt-8 border-t border-gray-200 pt-6">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-gray-900">Sales Closed Detection</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Map which form fields capture the advance/token payment used to auto-detect a closed sale
+          </p>
+        </div>
+        <SaleClosedMappingEditor />
+      </div>
+
       {/* Admin Tools */}
       {currentUser?.role === 'admin' && (
         <div className="mt-8 border-t border-gray-200 pt-6">
@@ -1549,6 +1757,18 @@ export function TemplatePage() {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
             )}
             🔧 Recalculate Pipeline Counts
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleBackfillSaleClosed}
+            disabled={backfillingSaleClosed}
+            className="flex items-center gap-2"
+          >
+            {backfillingSaleClosed && (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+            )}
+            🔧 Backfill Sales Closed
           </Button>
           <Button
             type="button"

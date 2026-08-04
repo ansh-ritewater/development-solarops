@@ -272,6 +272,8 @@ export function EngineerDetailDrawer({ engineer, onClose }: EngineerDetailDrawer
                           proposalRevisionCount:   (data['proposalRevisionCount']   as number) ?? 0,
                           droppedReason:           (data['droppedReason']           as string | null) ?? null,
                           correctionReturnTo:             (data['correctionReturnTo']             as PipelineStage | null | undefined) ?? null,
+                          saleClosed:                     (data['saleClosed']       as boolean | undefined) ?? false,
+                          saleClosedSource:               (data['saleClosedSource'] as 'auto' | 'manual' | null | undefined) ?? null,
                           correctionReturnAssignedTo:     (data['correctionReturnAssignedTo']     as string | null | undefined)        ?? null,
                           correctionReturnAssignedToName: (data['correctionReturnAssignedToName'] as string | undefined)               ?? '',
                           correctionNote:                 (data['correctionNote']                 as string | undefined)               ?? undefined,

@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/components/ui/toast';
 import { computePriorityScore, computeTitleWords } from '@/utils/taskScoring';
 import { resolveDistrictCasing, resolveAndAutoAddStateDistrict } from '@/utils/districtUtils';
+import { logError } from '@/utils/logError';
+import { computeSaleClosedEvidence } from '@/utils/computeSaleClosed';
 import type { FieldEngineer } from '@/hooks/useFieldEngineers';
 
 interface CreateTaskData {
@@ -524,5 +526,57 @@ export function useTaskActions() {
     }
   }
 
-  return { createTask, assignTask, archiveTask, unarchiveTask, updateTaskTitle, updateTaskDueDate, updateTaskDescription, updateTaskConsumerMobile, updateTaskDistrict, updateTaskLeadSource };
+  async function setSaleClosedManual(taskId: string, value: boolean): Promise<void> {
+    if (!currentUser) throw new Error('Not authenticated');
+    try {
+      await updateDoc(doc(db, 'tasks', taskId), {
+        saleClosed:       value,
+        saleClosedSource: 'manual',
+        updatedAt:        serverTimestamp(),
+      });
+      showToast(value ? 'Marked as Sales Closed' : 'Unmarked as Sales Closed', 'success');
+    } catch (err) {
+      console.error('[setSaleClosedManual] failed:', err);
+      void logError('taskActions.setSaleClosedManual', err, { taskId });
+      showToast('Failed to update Sales Closed status. Try again.', 'error');
+      throw err;
+    }
+  }
+
+  async function resetSaleClosedToAuto(taskId: string): Promise<void> {
+    if (!currentUser) throw new Error('Not authenticated');
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const [taskSnap, cfgSnap] = await Promise.all([
+        getDoc(taskRef),
+        getDoc(doc(db, 'appConfig', 'global')),
+      ]);
+      const taskData = taskSnap.data() ?? {};
+      const saleClosedConfig = cfgSnap.data()?.['saleClosedConfig'] as
+        import('@/types').SaleClosedConfig | undefined;
+      const recomputed = computeSaleClosedEvidence(
+        {
+          fieldAnswers:    taskData['fieldAnswers'],
+          fieldPhotos:     taskData['fieldPhotos'],
+          documentAnswers: taskData['documentAnswers'],
+          documentPhotos:  taskData['documentPhotos'],
+        },
+        saleClosedConfig,
+      );
+
+      await updateDoc(taskRef, {
+        saleClosed:       recomputed,
+        saleClosedSource: 'auto',
+        updatedAt:        serverTimestamp(),
+      });
+      showToast('Reset to automatic detection', 'success');
+    } catch (err) {
+      console.error('[resetSaleClosedToAuto] failed:', err);
+      void logError('taskActions.resetSaleClosedToAuto', err, { taskId });
+      showToast('Failed to reset. Try again.', 'error');
+      throw err;
+    }
+  }
+
+  return { createTask, assignTask, archiveTask, unarchiveTask, updateTaskTitle, updateTaskDueDate, updateTaskDescription, updateTaskConsumerMobile, updateTaskDistrict, updateTaskLeadSource, setSaleClosedManual, resetSaleClosedToAuto };
 }

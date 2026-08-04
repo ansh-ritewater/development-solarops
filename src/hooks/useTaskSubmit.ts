@@ -1,6 +1,6 @@
 import {
   doc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, arrayUnion,
-  increment, runTransaction,
+  increment, runTransaction, getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { assignLeastLoaded } from '@/utils/findLeastLoadedUser';
@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/toast';
 import { computePriorityScore } from '@/utils/taskScoring';
 import { enqueueTaskUpdate } from '@/hooks/useTaskOfflineQueue';
 import { logError } from '@/utils/logError';
+import { computeSaleClosedEvidence } from '@/utils/computeSaleClosed';
 import type { TaskStatus, FieldType, FieldDefinition, PipelineStage } from '@/types';
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -36,6 +37,29 @@ export function useTaskSubmit() {
 
     const taskRef = doc(db, 'tasks', taskId);
 
+    // Read the current sale-closed field mapping and the task's existing
+    // saleClosedSource once, up front, so the Step-1 write below can carry
+    // the recomputed flag without ever overwriting a manual admin override.
+    const cfgSnap = await getDoc(doc(db, 'appConfig', 'global'));
+    const saleClosedConfig = cfgSnap.data()?.['saleClosedConfig'] as
+      import('@/types').SaleClosedConfig | undefined;
+    const curTaskSnap = await getDoc(taskRef);
+    const curTask = curTaskSnap.data() ?? {};
+    const existingSource = curTask['saleClosedSource'] as
+      'auto' | 'manual' | null | undefined;
+    const newSaleClosed = computeSaleClosedEvidence(
+      {
+        fieldAnswers:    data.fieldAnswers,
+        fieldPhotos:     data.fieldPhotos,
+        documentAnswers: curTask['documentAnswers'],
+        documentPhotos:  curTask['documentPhotos'],
+      },
+      saleClosedConfig,
+    );
+    const saleClosedUpdate = existingSource === 'manual'
+      ? {}
+      : { saleClosed: newSaleClosed, saleClosedSource: 'auto' as const };
+
     // Step 1: Save main task data — retried up to 3 times on transient errors.
     // Photos are already in Cloudinary at this point (uploaded at capture time in
     // PhotoZone.tsx). Retrying guarantees the https:// URLs are committed to Firestore
@@ -55,6 +79,7 @@ export function useTaskSubmit() {
           submittedBy:   currentUser.uid,
           submittedAt:   serverTimestamp(),
           updatedAt:     serverTimestamp(),
+          ...saleClosedUpdate,
         });
         lastWriteErr = undefined;
         break;

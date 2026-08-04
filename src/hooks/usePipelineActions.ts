@@ -10,6 +10,7 @@ import { assignLeastLoaded } from '@/utils/findLeastLoadedUser';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { computePriorityScore } from '@/utils/taskScoring';
 import { logError } from '@/utils/logError';
+import { computeSaleClosedEvidence } from '@/utils/computeSaleClosed';
 import type { Task, PipelineStage, ProposalStageData, JourneyStepDefinition, JourneyStepAnswer, RemarkEntry } from '@/types';
 
 function cleanStep(step: JourneyStepAnswer): Record<string, unknown> {
@@ -595,8 +596,28 @@ export function usePipelineActions() {
         const taskSnap = await tx.get(taskRef);
         if (!taskSnap.exists()) throw new Error('Task not found');
 
+        const appConfigForSaleClosedRef = doc(db, 'appConfig', 'global');
+        const appConfigForSaleClosedSnap = await tx.get(appConfigForSaleClosedRef);
+
         documentAnswers = (taskSnap.data()?.['documentAnswers'] ?? {}) as Task['documentAnswers'];
         documentPhotos  = (taskSnap.data()?.['documentPhotos']  ?? {}) as Task['documentPhotos'];
+
+        const saleClosedConfig = appConfigForSaleClosedSnap.data()?.['saleClosedConfig'] as
+          import('@/types').SaleClosedConfig | undefined;
+        const existingSaleClosedSource = taskSnap.data()?.['saleClosedSource'] as
+          'auto' | 'manual' | null | undefined;
+        const newSaleClosed = computeSaleClosedEvidence(
+          {
+            fieldAnswers:    taskSnap.data()?.['fieldAnswers'],
+            fieldPhotos:     taskSnap.data()?.['fieldPhotos'],
+            documentAnswers,
+            documentPhotos,
+          },
+          saleClosedConfig,
+        );
+        const saleClosedUpdate = existingSaleClosedSource === 'manual'
+          ? {}
+          : { saleClosed: newSaleClosed, saleClosedSource: 'auto' as const };
 
         const corrResult = resolveCorrectionReturn(taskSnap.data() as Record<string, unknown>, 'backend');
         docsTargetStage          = corrResult.targetStage;
@@ -644,6 +665,7 @@ export function usePipelineActions() {
           correctionReturnAssignedToName: '',
           correctionNote:                 '',
           correctionSetAt:                null,
+          ...saleClosedUpdate,
         };
 
         if (docsIsReturning && docsReturnAssignedTo && (docsTargetStage as string) === 'backend') {

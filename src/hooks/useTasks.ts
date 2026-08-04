@@ -63,6 +63,8 @@ export function docToTask(d: { id: string; data: () => Record<string, unknown> }
     proposalRevisionCount:   (data['proposalRevisionCount']   as number) ?? 0,
     droppedReason:           (data['droppedReason']           as string | null) ?? null,
     correctionReturnTo:             (data['correctionReturnTo']             as PipelineStage | null | undefined) ?? null,
+    saleClosed:                     (data['saleClosed']       as boolean | undefined) ?? false,
+    saleClosedSource:               (data['saleClosedSource'] as 'auto' | 'manual' | null | undefined) ?? null,
     correctionReturnAssignedTo:     (data['correctionReturnAssignedTo']     as string | null | undefined)        ?? null,
     correctionReturnAssignedToName: (data['correctionReturnAssignedToName'] as string | undefined)               ?? '',
     correctionNote:                 (data['correctionNote']                 as string | undefined)               ?? undefined,
@@ -159,7 +161,8 @@ export type AdminFilter =
   | 'pipeline_backend'
   | 'unassigned'
   | 'unassigned_backend'
-  | 'my_tasks';
+  | 'my_tasks'
+  | 'sales_closed';
 
 export function useTasks() {
   const {
@@ -418,6 +421,14 @@ export function useTasks() {
           orderBy('correctionSetAt',    'desc'),
           limit(PAGE_SIZE));
         break;
+      case 'sales_closed':
+        // Includes dropped-after-closed leads by design — this list is not
+        // filtered by pipelineStage, unlike the badge count in useTabCounts.
+        q = query(base,
+          where('archived',   '==', false),
+          where('saleClosed', '==', true),
+          orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
+        break;
       case 'my_tasks':
         q = query(base,
           where('archived',  '==', false),
@@ -609,6 +620,12 @@ export function useTasks() {
                 orderBy('correctionReturnTo', 'asc'),
                 orderBy('correctionSetAt',    'desc'),
               ];
+            case 'sales_closed':
+              return [
+                where('archived',   '==', false),
+                where('saleClosed', '==', true),
+                orderBy('createdAt', 'desc'),
+              ];
             default:
               return [where('archived','==',false), orderBy('priorityScore','asc'), orderBy('updatedAt','desc')];
           }
@@ -663,16 +680,22 @@ export function useTabCounts() {
     const now  = new Date();
     const results = await Promise.allSettled([
       getCountFromServer(query(base, where('archived', '==', false))),
-      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'pending'))),
-      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'in_progress'))),
+      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'pending'), where('pipelineStage', 'not-in', ['dropped', 'completed']))),
+      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'in_progress'), where('pipelineStage', 'not-in', ['dropped', 'completed']))),
       getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'completed'))),
-      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'blocked'))),
+      getCountFromServer(query(base, where('archived', '==', false), where('status', '==', 'blocked'), where('pipelineStage', 'not-in', ['dropped', 'completed']))),
       getCountFromServer(query(base, where('archived', '==', false), where('followUpDate', '!=', null))),
       getCountFromServer(query(base, where('archived', '==', false), where('status', 'in', ['pending', 'in_progress', 'blocked']), where('dueDate', '<', Timestamp.fromDate(now)))),
       getCountFromServer(query(base, where('archived', '==', false), where('correctionReturnTo', '!=', null))),
+      // Excludes dropped leads for parity with the Dashboard "Sales Closed" card.
+      // The sales_closed TAB LIST (buildAdminQuery) intentionally does NOT apply
+      // this pipelineStage exclusion, so dropped-after-closed anomalies still
+      // show up as rows — this badge count can therefore read a few lower than
+      // the number of rows the tab actually renders. That mismatch is by design.
+      getCountFromServer(query(base, where('archived', '==', false), where('saleClosed', '==', true), where('pipelineStage', '!=', 'dropped'))),
     ]);
     if (cancelRef.current) return;
-    const keys = ['all', 'pending', 'in_progress', 'completed', 'blocked', 'follow_up', 'overdue', 'needs_correction'];
+    const keys = ['all', 'pending', 'in_progress', 'completed', 'blocked', 'follow_up', 'overdue', 'needs_correction', 'sales_closed'];
     const counts: Record<string, number> = {};
     results.forEach((r, i) => {
       counts[keys[i]] = r.status === 'fulfilled' ? r.value.data().count : 0;

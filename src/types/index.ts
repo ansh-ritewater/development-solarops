@@ -83,6 +83,17 @@ export interface FieldDefinition {
   unit?:      string;
 }
 
+export interface SaleClosedFieldMap {
+  typeFieldId:   string | null;
+  amountFieldId: string | null;
+  imageFieldId:  string | null;
+}
+
+export interface SaleClosedConfig {
+  survey:    SaleClosedFieldMap;
+  documents: SaleClosedFieldMap;
+}
+
 // ─── AppConfig ─────────────────────────────────────────────────────────────────
 
 export interface AppConfig {
@@ -115,6 +126,7 @@ export interface AppConfig {
   districts?:         string[];
   leadSources?:       string[];
   districtsByState?:  Record<string, string[]>;
+  saleClosedConfig?:  SaleClosedConfig;
 }
 
 // ─── Pipeline ─────────────────────────────────────────────────────────────────
@@ -287,6 +299,8 @@ export interface Task {
   documentAnswers?:            Record<string, string>;
   documentPhotos?:             Record<string, string[]>;
   documentsCompleted?:         boolean;
+  saleClosed?:                 boolean;
+  saleClosedSource?:           'auto' | 'manual' | null;
   paymentType:                 'cash' | 'loan' | null;
   applicationJourneySteps:     JourneyStepAnswer[];
   currentStepIndex:            number;

@@ -15,6 +15,7 @@ import { db }                 from '@/firebase/config';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { logError } from '@/utils/logError';
+import { computeSaleClosedEvidence } from '@/utils/computeSaleClosed';
 import type { Task, SurveyStageData, ProposalStageData } from '@/types';
 
 interface DocumentsWorkDrawerProps {
@@ -107,10 +108,31 @@ export function DocumentsWorkDrawer({ task, onClose }: DocumentsWorkDrawerProps)
   }
 
   async function persistProgress(taskId: string) {
+    const cfgSnap = await getDoc(doc(db, 'appConfig', 'global'));
+    const saleClosedConfig = cfgSnap.data()?.['saleClosedConfig'] as
+      import('@/types').SaleClosedConfig | undefined;
+    const curTaskSnap = await getDoc(doc(db, 'tasks', taskId));
+    const curTask = curTaskSnap.data() ?? {};
+    const existingSource = curTask['saleClosedSource'] as
+      'auto' | 'manual' | null | undefined;
+    const newSaleClosed = computeSaleClosedEvidence(
+      {
+        fieldAnswers:    curTask['fieldAnswers'],
+        fieldPhotos:     curTask['fieldPhotos'],
+        documentAnswers: docAnswers,
+        documentPhotos:  docPhotos,
+      },
+      saleClosedConfig,
+    );
+    const saleClosedUpdate = existingSource === 'manual'
+      ? {}
+      : { saleClosed: newSaleClosed, saleClosedSource: 'auto' as const };
+
     await updateDoc(doc(db, 'tasks', taskId), {
       documentAnswers: docAnswers,
       documentPhotos:  docPhotos,
       updatedAt:       serverTimestamp(),
+      ...saleClosedUpdate,
     });
   }
 

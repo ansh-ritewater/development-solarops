@@ -226,5 +226,23 @@ export function useTemplateActions() {
     }
   }
 
-  return { saveTemplate, saveDocumentTemplate, saveBackendJourneySteps, saveDistricts, saveDistrictsByState, saveLeadSources };
+  async function saveSaleClosedConfig(
+    saleClosedConfig: import('@/types').SaleClosedConfig,
+  ): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'appConfig', 'global'), {
+        saleClosedConfig,
+        updatedAt: serverTimestamp(),
+      });
+      showToast('Sales Closed field mapping saved', 'success');
+    } catch (err) {
+      console.error('[saveSaleClosedConfig] failed:', err);
+      void import('@/utils/logError').then(({ logError }) =>
+        logError('template.saveSaleClosedConfig', err, {}));
+      showToast('Failed to save mapping. Try again.', 'error');
+      throw err;
+    }
+  }
+
+  return { saveTemplate, saveDocumentTemplate, saveBackendJourneySteps, saveDistricts, saveDistrictsByState, saveLeadSources, saveSaleClosedConfig };
 }

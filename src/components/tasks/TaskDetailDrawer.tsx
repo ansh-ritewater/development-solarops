@@ -1203,16 +1203,92 @@ function AdminStageOverride({ task }: { task: Task }) {
   );
 }
 
+// ─── Sale Closed Control ──────────────────────────────────────────────────────
+
+function SaleClosedControl({ task, onChanged }: { task: Task; onChanged?: () => void }) {
+  const { currentUser } = useAuthStore();
+  const { setSaleClosedManual, resetSaleClosedToAuto } = useTaskActions();
+  const [loading, setLoading] = useState(false);
+
+  if (currentUser?.role !== 'admin') return null;
+
+  async function handleToggle() {
+    setLoading(true);
+    try {
+      await setSaleClosedManual(task.id, !task.saleClosed);
+      onChanged?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReset() {
+    setLoading(true);
+    try {
+      await resetSaleClosedToAuto(task.id);
+      onChanged?.();
+    } catch {
+      // handled in hook
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <span className={cn(
+            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+            task.saleClosed ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600',
+          )}>
+            {task.saleClosed ? '✅ Sales Closed' : 'Not Sales Closed'}
+          </span>
+          <p className="text-xs text-gray-400 mt-1">
+            {task.saleClosedSource === 'manual' ? '(manually set)' : '(auto-detected)'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={loading}
+          className={cn(
+            'rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors',
+            task.saleClosed
+              ? 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+              : 'bg-green-600 hover:bg-green-700 text-white',
+          )}
+        >
+          {loading ? '…' : task.saleClosed ? 'Unmark as Sales Closed' : 'Mark as Sales Closed'}
+        </button>
+      </div>
+      {task.saleClosedSource === 'manual' && (
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={loading}
+          className="self-start text-xs text-gray-400 hover:text-gray-600 underline disabled:opacity-50 transition-colors"
+        >
+          Reset to automatic
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface TaskDetailDrawerProps {
-  task:            Task | null;
-  onClose:         () => void;
-  onUpdate?:       (task: Task) => void;
-  onAdminUpdate?:  (task: Task) => void;
+  task:                 Task | null;
+  onClose:              () => void;
+  onUpdate?:            (task: Task) => void;
+  onAdminUpdate?:       (task: Task) => void;
+  onSaleClosedChange?:  () => void;
 }
 
-export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate }: TaskDetailDrawerProps) {
+export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate, onSaleClosedChange }: TaskDetailDrawerProps) {
   const { currentUser }                    = useAuthStore();
   const { assignTask, archiveTask, unarchiveTask } = useTaskActions();
   const { updateBackendRemark, updateProposalRemark } = usePipelineActions();
@@ -1386,6 +1462,9 @@ export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate }: Tas
               </p>
             </div>
           )}
+
+          {/* Sales Closed status (admin only) */}
+          <SaleClosedControl task={task} onChanged={onSaleClosedChange} />
 
           {/* Meta */}
           <div className="flex flex-col gap-2 text-sm">

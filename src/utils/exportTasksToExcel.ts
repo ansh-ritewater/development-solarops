@@ -46,6 +46,10 @@ export function exportTasksToExcel(tasks: Task[]): void {
     'Payment Type':        t.paymentType
                              ? (t.paymentType === 'cash' ? 'Cash' : 'Loan')
                              : '',
+    'Sales Closed':        t.saleClosed ? 'Yes' : 'No',
+    'Sales Closed Source': t.saleClosed
+                             ? (t.saleClosedSource === 'manual' ? 'Manual' : 'Auto')
+                             : '',
     'Journey Steps Done':  t.applicationJourneySteps
                              ? t.applicationJourneySteps.filter((s) => s.status === 'done').length
                              : '',
@@ -159,7 +163,7 @@ export function exportTasksToExcel(tasks: Task[]): void {
     { wch: 12 }, { wch: 20 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
-    { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 12 }, { wch: 14 },
+    { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 12 }, { wch: 14 },
   ];
   XLSX.utils.book_append_sheet(wb, ws1, 'Tasks Summary');
 
