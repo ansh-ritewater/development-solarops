@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Plus, Trash2, ChevronUp, ChevronDown, Save, Check, X, ChevronRight, Pencil, Route, FileText } from 'lucide-react';
 import { collection, doc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore';
-import { backfillEngineerDistrictCounts, reconcileSaleClosed } from '@/firebase/initAppConfig';
+import { backfillEngineerDistrictCounts, reconcileSaleClosed, reconcileStatusStageCorruption } from '@/firebase/initAppConfig';
 import { db }                 from '@/firebase/config';
 import { toTitleCase }        from '@/utils/districtUtils';
 import { useAppConfig }       from '@/hooks/useAppConfig';
@@ -766,6 +766,9 @@ export function TemplatePage() {
   const [migratingState,                setMigratingState]               = useState(false);
   const [migratingCorrections, setMigratingCorrections] = useState(false);
   const [backfillingSaleClosed, setBackfillingSaleClosed] = useState(false);
+  // TEMPORARY DIAGNOSTIC — read-only, admin-only, remove after use.
+  const [checkingStatusStageCorruption, setCheckingStatusStageCorruption] = useState(false);
+  const [repairingStatusStageCorruption, setRepairingStatusStageCorruption] = useState(false);
 
   const [districtsByState,       setDistrictsByState]       = useState<Record<string, string[]>>({});
   const [newState,               setNewState]               = useState('');
@@ -1158,6 +1161,50 @@ export function TemplatePage() {
       _emitToast('Failed to backfill Sales Closed. Try again.', 'error');
     } finally {
       setBackfillingSaleClosed(false);
+    }
+  }
+
+  // TEMPORARY DIAGNOSTIC — read-only, admin-only, remove after use.
+  async function handleCheckStatusStageCorruption() {
+    if (currentUser?.role !== 'admin') return;
+    setCheckingStatusStageCorruption(true);
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'tasks'),
+        where('archived', '==', false),
+        where('status', '==', 'pending'),
+        where('pipelineStage', 'not-in', ['survey', 'dropped']),
+      ));
+      _emitToast(
+        snap.empty
+          ? 'No corrupted tasks found.'
+          : `Found ${snap.size} corrupted task(s): ` + snap.docs.map((d) =>
+              `${d.data()['taskNum']}(stage=${d.data()['pipelineStage']})`
+            ).join(', '),
+        snap.empty ? 'success' : 'error',
+      );
+    } catch (err) {
+      console.error('[checkStatusStageCorruption] failed:', err);
+      _emitToast('Failed to check status/stage corruption. Try again.', 'error');
+    } finally {
+      setCheckingStatusStageCorruption(false);
+    }
+  }
+
+  async function handleRepairStatusStageCorruption() {
+    if (currentUser?.role !== 'admin') return;
+    setRepairingStatusStageCorruption(true);
+    try {
+      const { totalScanned, repaired } = await reconcileStatusStageCorruption();
+      _emitToast(
+        `Scanned ${totalScanned}, repaired ${repaired}`,
+        'success',
+      );
+    } catch (err) {
+      console.error('[repairStatusStageCorruption] failed:', err);
+      _emitToast('Failed to repair status/stage corruption. Try again.', 'error');
+    } finally {
+      setRepairingStatusStageCorruption(false);
     }
   }
 
@@ -1769,6 +1816,30 @@ export function TemplatePage() {
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
             )}
             🔧 Backfill Sales Closed
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCheckStatusStageCorruption}
+            disabled={checkingStatusStageCorruption}
+            className="flex items-center gap-2"
+          >
+            {checkingStatusStageCorruption && (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+            )}
+            🔍 Check Status/Stage Corruption
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleRepairStatusStageCorruption}
+            disabled={repairingStatusStageCorruption}
+            className="flex items-center gap-2"
+          >
+            {repairingStatusStageCorruption && (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+            )}
+            🔧 Repair Status/Stage Corruption
           </Button>
           <Button
             type="button"

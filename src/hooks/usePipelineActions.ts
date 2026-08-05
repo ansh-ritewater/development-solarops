@@ -1139,8 +1139,8 @@ export function usePipelineActions() {
           taskFieldUpdates['backendAssignedToName'] = '';
         }
 
-        if (currentStatus === 'completed' && newStage !== 'completed') {
-          taskFieldUpdates['status'] = 'pending';
+        if (newStage === 'completed' && currentStatus !== 'completed') {
+          taskFieldUpdates['status'] = 'completed';
         }
 
         if (isCorrection) {

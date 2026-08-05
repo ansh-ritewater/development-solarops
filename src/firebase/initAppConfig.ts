@@ -753,6 +753,42 @@ export async function reconcileSaleClosed(): Promise<{
   return summary;
 }
 
+export async function reconcileStatusStageCorruption(): Promise<{
+  totalScanned: number;
+  repaired:     number;
+}> {
+  const snap = await getDocs(query(
+    collection(db, 'tasks'),
+    where('archived', '==', false),
+    where('status', '==', 'pending'),
+    where('pipelineStage', 'not-in', ['survey', 'dropped']),
+  ));
+
+  const toUpdate: { id: string }[] = [];
+
+  snap.docs.forEach((d) => {
+    toUpdate.push({ id: d.id });
+  });
+
+  const CHUNK = 499;
+  for (let i = 0; i < toUpdate.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    toUpdate.slice(i, i + CHUNK).forEach(({ id }) => {
+      batch.update(doc(db, 'tasks', id), {
+        status: 'completed',
+      });
+    });
+    await batch.commit();
+  }
+
+  const summary = {
+    totalScanned: snap.docs.length,
+    repaired:     toUpdate.length,
+  };
+  console.warn('[reconcileStatusStageCorruption] Done:', summary);
+  return summary;
+}
+
 export async function ensureSuperAdmin(uid: string): Promise<void> {
   const ref  = doc(db, 'appConfig', 'global');
   const snap = await getDoc(ref);

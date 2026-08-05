@@ -22,6 +22,7 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 import { useFieldEngineers } from '@/hooks/useFieldEngineers';
 import { useToast } from '@/components/ui/toast';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { needsResurvey } from '@/utils/needsResurvey';
 import type { Task, TaskStatus, PipelineStage } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -356,7 +357,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       className={cn(
         'w-full text-left rounded-xl border border-gray-100 bg-white px-4 py-4 shadow-sm',
         'hover:shadow-md transition-all flex items-start gap-3 border-l-4',
-        task.correctionReturnTo ? 'border-l-amber-500'
+        (task.correctionReturnTo || needsResurvey(task)) ? 'border-l-amber-500'
           : (!task.pipelineStage || task.pipelineStage === 'survey')
           ? border
           : task.pipelineStage === 'completed'   ? 'border-l-green-500'
@@ -453,6 +454,10 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
           <div className="mt-1 flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-0.5 w-fit bg-amber-100 text-amber-800 border border-amber-300">
             ↩ Sent back for correction — will return to {task.correctionReturnTo.replace('_', ' ')}
           </div>
+        ) : needsResurvey(task) ? (
+          <div className="mt-1 flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-0.5 w-fit bg-amber-100 text-amber-800 border border-amber-300">
+            ↩ Restarted by admin — needs re-survey
+          </div>
         ) : task.pipelineStage && task.pipelineStage !== 'survey' && (() => {
           const pb = PIPELINE_BADGE[task.pipelineStage!];
           return pb ? (
@@ -492,7 +497,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       </div>
 
       <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
-        {(!task.pipelineStage || task.pipelineStage === 'survey') && !task.correctionReturnTo && (
+        {(!task.pipelineStage || task.pipelineStage === 'survey') && !task.correctionReturnTo && !needsResurvey(task) && (
           <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', badge)}>
             {label}
           </span>
@@ -1279,7 +1284,8 @@ export function TasksPage() {
               {(() => {
                 const reviewTasks       = sorted.filter((t) => t.pipelineStage === 'field_review');
                 const activeSurveyTasks = sorted.filter((t) =>
-                  (!t.pipelineStage || t.pipelineStage === 'survey') && t.status !== 'completed'
+                  (!t.pipelineStage || t.pipelineStage === 'survey') &&
+                  (t.status !== 'completed' || needsResurvey(t) || !!t.correctionReturnTo)
                 );
                 const documentsTasks    = sorted.filter((t) => t.pipelineStage === 'documents');
                 const inPipelineTasks   = sorted.filter((t) =>

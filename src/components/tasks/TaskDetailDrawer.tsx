@@ -15,6 +15,7 @@ import { useToast }           from '@/components/ui/toast';
 import { useAppConfig }       from '@/hooks/useAppConfig';
 import { useDrawerBackButton } from '@/hooks/useDrawerBackButton';
 import { checkDuplicateConsumerMobile } from '@/utils/checkDuplicateMobile';
+import { needsResurvey } from '@/utils/needsResurvey';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -1459,6 +1460,16 @@ export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate, onSal
               <p className="text-xs text-amber-700 mt-0.5">
                 Will automatically return to {task.correctionReturnTo.replace('_', ' ')} once resubmitted.
                 {task.correctionNote && ` Reason: "${task.correctionNote}"`}
+              </p>
+            </div>
+          )}
+
+          {needsResurvey(task) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+              <p className="text-xs font-semibold text-amber-800">↩ Restarted by admin — needs re-survey</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                This task was sent back to Survey and needs to be resurveyed.
+                It will move forward normally once resubmitted.
               </p>
             </div>
           )}
