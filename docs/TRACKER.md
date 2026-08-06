@@ -89,6 +89,9 @@
 
 ## Next deployment checklist (when ready)
 
+**Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact
+files listed below.**
+
 1. Copy these 6 files from dev to `D:\SolarOps`:
    `src/components/tasks/TaskDetailDrawer.tsx`,
    `src/firebase/initAppConfig.ts`,

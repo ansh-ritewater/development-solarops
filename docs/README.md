@@ -18,8 +18,7 @@ project's actual memory, and they only stay useful if kept current.**
   fixed, so the same *pattern* of mistake is recognizable if it shows
   up somewhere else later.
 - `ARCHITECTURE.md`, `SCHEMA.md`, `PIPELINE_FLOW.md` — deeper technical
-  references, built from careful fresh reads of the real code (not
-  written yet as of this file's creation — see TRACKER.md for status).
+  references, built from careful fresh reads of the real code.
 
 ## Two separate projects — do not confuse them
 
@@ -35,6 +34,17 @@ project's actual memory, and they only stay useful if kept current.**
 
 **Never copy `.env.local` or `.firebaserc` between the two folders** —
 each must keep pointing at its own correct Firebase project.
+
+## `docs/` itself is dev-only — NEVER deploy this folder
+
+This entire `docs/` folder exists only in `D:\Development-SolarOps`'s
+git repository, for development reference. **It must never be copied
+to `D:\SolarOps` or deployed to production in any form** — it contains
+internal notes, known risks, and audit findings that have no reason to
+ship as part of the live application. Every deployment file-copy list
+(see TRACKER.md's "Next deployment checklist") is an explicit,
+named list of specific files — never a broad folder copy — precisely
+so this can never happen by accident.
 
 ## How Claude (chat) and Claude Code actually work together
 
