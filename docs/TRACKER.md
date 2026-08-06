@@ -64,6 +64,29 @@
   required Firestore index might be missing from production (it wasn't
   — confirmed via gcloud)
 
+**Session — 6 August 2026 (documentation audit):**
+- Built the full docs/ set (README, TRACKER, FEATURES, PARKED,
+  KNOWN_ISSUES, SCHEMA, PIPELINE_FLOW, ARCHITECTURE) from genuine fresh
+  reads of the entire codebase, not memory — 5 read batches covering
+  every page, drawer, hook, and util
+- Real findings along the way: the `initAppConfig.ts` boot-time
+  backfill sequence (11 functions auto-run on admin Dashboard load, 8
+  gated only by client-side `localStorage`, not server-side); the
+  invite-link signup system (`invites`/`SignupPage.tsx`/
+  `useInviteActions.ts`) confirmed genuinely orphaned — zero caller
+  anywhere, the real flow is TeamPage's "Create User"; a real UI-text
+  bug in the offline queue's oversized-file toast (said 15MB, actual
+  caps are 10MB images / 20MB PDFs) — fixed directly, see below
+- **⚠️ Found, NOT fixed — "Migrate Historical Reverted Tasks" (Template
+  → Admin Tools) can undo the status-corruption fix from the previous
+  session, going forward, for any future Full-Restart-with-a-custom-note
+  move. Ansh's decision: do not click this button; fix deferred, not
+  urgent since nobody is using it. Full detail in PARKED.md.**
+- Small fix made and applied directly: corrected the oversized-file
+  toast text in `TaskQueueProcessor.tsx` (15MB → 10MB/20MB, matching
+  the actual enforced caps)
+- Nothing from this session deployed anywhere; nothing committed yet
+
 ## Next deployment checklist (when ready)
 
 1. Copy these 6 files from dev to `D:\SolarOps`:
@@ -73,6 +96,9 @@
    `src/pages/TasksPage.tsx`,
    `src/pages/TemplatePage.tsx`,
    `src/utils/needsResurvey.ts` (new file)
+1a. Also include `src/components/offline/TaskQueueProcessor.tsx` (the
+    15MB→10MB/20MB toast-text fix) in the file copy — small, unrelated
+    to the corruption fix, but also uncommitted and ready.
 2. Verify `tsc`/build clean in the prod folder
 3. Deploy hosting (no rules or index changes needed for this one)
 4. Click "Check Status/Stage Corruption" on production — record the

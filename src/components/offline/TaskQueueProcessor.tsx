@@ -153,7 +153,7 @@ export function TaskQueueProcessor() {
       })
     );
     if (anyOversized) {
-      _emitToast('One file was too large to upload and was skipped. Max size: 15MB.', 'error');
+      _emitToast('One file was too large to upload and was skipped. Max size: 10MB (images) / 20MB (PDFs).', 'error');
     }
     const finalCompletionPhotos = rawCompletionPhotos.filter((u): u is string => u !== null);
 

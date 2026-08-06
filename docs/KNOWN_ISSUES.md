@@ -44,6 +44,18 @@ unrelated. **Lesson: before fixing a bug, check whether anything else
 in the app might be silently depending on its incorrect behavior as a
 feature.**
 
+## Pattern: no shared data-access layer means every consumer needs its own fix
+
+`useAppConfig` (and most data-reading hooks) are NOT a single shared
+store — each component/hook that reads a piece of Firestore data opens
+its own independent subscription and does its own field mapping. This
+is why the Sales Closed mapper-gap bug (see TRACKER.md) required the
+identical fix in 4 separate files (`useTasks.ts`, `useProposalTasks.ts`,
+`useBackendTasks.ts`, `EngineerDetailDrawer.tsx`) rather than one shared
+place. **Lesson: when adding a new field to Task or AppConfig, check
+every file that independently reads that collection — there is no
+single choke point that guarantees it's covered everywhere.**
+
 ## Stale-file mistakes (process, not code)
 
 Multiple times this session, an old file attachment with the same
