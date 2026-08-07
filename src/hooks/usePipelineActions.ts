@@ -850,6 +850,11 @@ export function usePipelineActions() {
           status:           'completed',
           updatedAt:        serverTimestamp(),
           stageHistory:     [...cappedHistory, entry],
+          correctionReturnTo:             null,
+          correctionReturnAssignedTo:     null,
+          correctionReturnAssignedToName: '',
+          correctionNote:                 '',
+          correctionSetAt:                null,
         });
         const appConfigUpdates: Record<string, unknown> = {
           'pipelineCounts.backend':      increment(-1),
