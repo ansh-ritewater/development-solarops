@@ -1006,6 +1006,7 @@ export function usePipelineActions() {
     if (!currentUser) throw new Error('Not authenticated');
     try {
       let blockedByArchive = false;
+      let destinationStage: PipelineStage = 'proposal';
       const now   = Timestamp.now();
       const entry = {
         fromStage: 'dropped' as PipelineStage,
@@ -1028,6 +1029,40 @@ export function usePipelineActions() {
           blockedByArchive = true;
           return;
         }
+        const history   = (taskSnap.data()['stageHistory'] ?? []) as Array<Record<string, unknown>>;
+        const lastEntry = history[history.length - 1];
+        const dropOrigin = (lastEntry?.['toStage'] === 'dropped')
+          ? (lastEntry['fromStage'] as string | null)
+          : null;
+
+        let statusOverride: 'pending' | null = null;
+        let clearJourney = false;
+
+        switch (dropOrigin) {
+          case 'survey':
+            destinationStage = 'survey';
+            statusOverride = 'pending';
+            break;
+          case 'documents':
+            destinationStage = 'documents';
+            break;
+          case 'backend':
+          case 'completed':
+            destinationStage = 'documents';
+            clearJourney = true;
+            break;
+          default:
+            // field_review, proposal, or any unrecognized origin — safe
+            // fallback to today's existing behavior, but log if genuinely
+            // unrecognized so we know if this ever actually fires
+            destinationStage = 'proposal';
+            if (dropOrigin !== 'field_review' && dropOrigin !== 'proposal') {
+              void logError('pipeline.reEngageLead.unknownOrigin', new Error(`Unrecognized drop origin: ${dropOrigin}`), { taskId });
+            }
+        }
+
+        const currentStatus = taskSnap.data()['status'] as string;
+
         const existingHistory = (taskSnap.data()?.['stageHistory'] ?? []) as Array<Record<string, unknown>>;
         const cappedHistory   = existingHistory.slice(-49).map((e) => ({
           fromStage: e['fromStage'] ?? null,
@@ -1039,18 +1074,34 @@ export function usePipelineActions() {
           note:      e['note']      ?? '',
         }));
         tx.update(taskRef, {
-          pipelineStage: 'proposal',
-          priorityScore: computePriorityScore('proposal', 'completed'),
+          pipelineStage: destinationStage,
+          priorityScore: computePriorityScore(destinationStage, statusOverride ?? currentStatus),
           droppedReason: null,
           updatedAt:     serverTimestamp(),
-          stageHistory:  [...cappedHistory, entry],
+          ...(statusOverride ? { status: statusOverride } : {}),
+          correctionReturnTo:             null,
+          correctionReturnAssignedTo:     null,
+          correctionReturnAssignedToName: '',
+          correctionNote:                 '',
+          correctionSetAt:                null,
+          ...(clearJourney ? {
+            applicationJourneySteps: [],
+            paymentType:             null,
+            journeyCompleted:        false,
+            currentStepIndex:        0,
+          } : {}),
+          stageHistory: [...cappedHistory, { ...entry, toStage: destinationStage }],
         });
-        tx.update(doc(db, 'appConfig', 'global'), {
+
+        const configUpdates: Record<string, unknown> = {
           'pipelineCounts.dropped':              increment(-1),
-          'pipelineCounts.proposal':             increment(1),
+          [`pipelineCounts.${destinationStage}`]: increment(1),
           'pipelineCounts.total_active':         increment(1),
-          'pipelineCounts.unassigned_proposal':  increment(1),
-        });
+        };
+        if (destinationStage === 'proposal') {
+          configUpdates['pipelineCounts.unassigned_proposal'] = increment(1);
+        }
+        tx.update(doc(db, 'appConfig', 'global'), configUpdates);
       });
 
       if (blockedByArchive) {
@@ -1059,23 +1110,25 @@ export function usePipelineActions() {
       }
 
       // Assign to least loaded proposal member
-      try {
-        const assigned = await assignLeastLoaded(
-          taskId,
-          'proposal',
-          'proposalAssignedTo',
-          'proposalAssignedToName',
-        );
-        if (assigned) {
-          await updateDoc(doc(db, 'appConfig', 'global'), {
-            'pipelineCounts.unassigned_proposal': increment(-1),
-          }).catch(console.error);
+      if (destinationStage === 'proposal') {
+        try {
+          const assigned = await assignLeastLoaded(
+            taskId,
+            'proposal',
+            'proposalAssignedTo',
+            'proposalAssignedToName',
+          );
+          if (assigned) {
+            await updateDoc(doc(db, 'appConfig', 'global'), {
+              'pipelineCounts.unassigned_proposal': increment(-1),
+            }).catch(console.error);
+          }
+        } catch (err) {
+          console.error('[reEngageLead] auto-assign failed:', err);
         }
-      } catch (err) {
-        console.error('[reEngageLead] auto-assign failed:', err);
       }
 
-      showToast('Lead re-engaged and moved to Proposal stage', 'success');
+      showToast(`Lead re-engaged and moved to ${destinationStage} stage`, 'success');
     } catch (err) {
       console.error('[reEngageLead] failed:', err);
       showToast('Failed to re-engage lead. Try again.', 'error');
