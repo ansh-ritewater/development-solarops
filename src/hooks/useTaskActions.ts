@@ -578,5 +578,24 @@ export function useTaskActions() {
     }
   }
 
-  return { createTask, assignTask, archiveTask, unarchiveTask, updateTaskTitle, updateTaskDueDate, updateTaskDescription, updateTaskConsumerMobile, updateTaskDistrict, updateTaskLeadSource, setSaleClosedManual, resetSaleClosedToAuto };
+  async function clearStuckCorrectionFlag(taskId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'tasks', taskId), {
+        correctionReturnTo:             null,
+        correctionReturnAssignedTo:     null,
+        correctionReturnAssignedToName: '',
+        correctionNote:                 '',
+        correctionSetAt:                null,
+        updatedAt:                      serverTimestamp(),
+      });
+      showToast('Correction flag cleared', 'success');
+    } catch (err) {
+      console.error('[clearStuckCorrectionFlag] failed:', err);
+      void logError('taskActions.clearStuckCorrectionFlag', err, { taskId });
+      showToast('Failed to clear correction flag. Try again.', 'error');
+      throw err;
+    }
+  }
+
+  return { createTask, assignTask, archiveTask, unarchiveTask, updateTaskTitle, updateTaskDueDate, updateTaskDescription, updateTaskConsumerMobile, updateTaskDistrict, updateTaskLeadSource, setSaleClosedManual, resetSaleClosedToAuto, clearStuckCorrectionFlag };
 }

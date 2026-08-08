@@ -250,17 +250,17 @@ export function DashboardPage() {
     async function loadStatusCounts() {
       try {
         const [p, ip, c, b, t] = await Promise.all([
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'pending'),     where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'in_progress'), where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'completed'),   limit(1000))),
-          getDocs(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'blocked'),     where('pipelineStage', 'not-in', ['dropped', 'completed']), limit(1000))),
+          getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'pending'),     where('pipelineStage', 'not-in', ['dropped', 'completed']))),
+          getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'in_progress'), where('pipelineStage', 'not-in', ['dropped', 'completed']))),
+          getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'completed'))),
+          getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false), where('status', '==', 'blocked'),     where('pipelineStage', 'not-in', ['dropped', 'completed']))),
           getCountFromServer(query(collection(db, 'tasks'), where('archived', '==', false))),
         ]);
         setStatusCounts({
-          pending:     p.size,
-          in_progress: ip.size,
-          completed:   c.size,
-          blocked:     b.size,
+          pending:     p.data().count,
+          in_progress: ip.data().count,
+          completed:   c.data().count,
+          blocked:     b.data().count,
           total:       t.data().count,
         });
       } catch (err) {

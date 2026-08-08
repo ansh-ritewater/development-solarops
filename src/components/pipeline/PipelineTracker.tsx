@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { PipelineStage, StageHistoryEntry } from '@/types';
+import { stageIndex } from '@/utils/stageOrder';
 
 interface PipelineTrackerProps {
   pipelineStage:  PipelineStage;
@@ -16,12 +17,6 @@ const STAGE_CONFIG: { key: PipelineStage; label: string; icon: string }[] = [
   { key: 'completed',    label: 'Completed',    icon: '✅' },
 ];
 
-const STAGE_ORDER: PipelineStage[] = STAGE_CONFIG.map((s) => s.key);
-
-function stageIndex(stage: PipelineStage): number {
-  return STAGE_ORDER.indexOf(stage);
-}
-
 function formatDateTime(d: Date): string {
   return d.toLocaleString('en-IN', {
     day:    '2-digit',
@@ -35,8 +30,15 @@ function formatDateTime(d: Date): string {
 export function PipelineTracker({ pipelineStage, stageHistory, droppedReason }: PipelineTrackerProps) {
   if (!pipelineStage) return null;
 
-  const isDropped  = pipelineStage === 'dropped';
-  const currentIdx = isDropped ? stageIndex('field_review') : stageIndex(pipelineStage);
+  const isDropped = pipelineStage === 'dropped';
+  const trueDropOrigin: PipelineStage = (() => {
+    if (!isDropped) return pipelineStage;
+    const lastEntry = stageHistory?.[stageHistory.length - 1];
+    return (lastEntry?.toStage === 'dropped' && lastEntry.fromStage)
+      ? lastEntry.fromStage
+      : 'field_review'; // safe fallback if origin can't be determined — matches old behavior
+  })();
+  const currentIdx = stageIndex(trueDropOrigin);
 
   return (
     <div className="flex flex-col gap-4">

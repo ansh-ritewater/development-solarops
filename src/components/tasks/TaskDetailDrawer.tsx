@@ -16,6 +16,7 @@ import { useAppConfig }       from '@/hooks/useAppConfig';
 import { useDrawerBackButton } from '@/hooks/useDrawerBackButton';
 import { checkDuplicateConsumerMobile } from '@/utils/checkDuplicateMobile';
 import { needsResurvey } from '@/utils/needsResurvey';
+import { isBackwardMove } from '@/utils/stageOrder';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -1120,10 +1121,16 @@ function AdminStageOverride({ task }: { task: Task }) {
     { value: 'dropped',      label: 'Dropped'      },
   ];
 
+  const isQuestionableMove = stage
+    ? !isBackwardMove(task.pipelineStage ?? 'survey', stage as import('@/types').PipelineStage)
+    : false;
+
   async function handleOverride(isCorrection: boolean) {
     if (!stage || stage === task.pipelineStage) return;
     const msg = isCorrection
-      ? `Send this lead back to "${stage}" for correction? It will auto-return to "${task.pipelineStage}" once the step is resubmitted.`
+      ? (isQuestionableMove
+          ? `⚠️ WARNING: "${stage}" is not a backward move from "${task.pipelineStage}". Quick Correction is meant for backward moves only — using it here will create a correction pointer that may never automatically resolve. Are you SURE you want to continue with Quick Correction anyway? (Full Restart is usually the right choice for this move.)`
+          : `Send this lead back to "${stage}" for correction? It will auto-return to "${task.pipelineStage}" once the step is resubmitted.`)
       : `Move this lead from "${task.pipelineStage}" to "${stage}"? This is a full override — downstream progress will not be preserved.`;
     if (!window.confirm(msg)) return;
     setLoading(true);
@@ -1166,6 +1173,14 @@ function AdminStageOverride({ task }: { task: Task }) {
           <option key={s.value} value={s.value}>{s.label}</option>
         ))}
       </select>
+      {isQuestionableMove && (
+        <p className="text-xs text-red-600 font-medium">
+          ⚠️ "{STAGES.find(s => s.value === stage)?.label}" is not earlier
+          than the current stage — Quick Correction is meant for sending a
+          lead BACK to an earlier stage. If you're moving it forward or
+          skipping stages, use Full Restart instead.
+        </p>
+      )}
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -1201,6 +1216,40 @@ function AdminStageOverride({ task }: { task: Task }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── Correction Rescue Control ────────────────────────────────────────────────
+function CorrectionRescueControl({ task }: { task: Task }) {
+  const { currentUser } = useAuthStore();
+  const { clearStuckCorrectionFlag } = useTaskActions();
+  const [loading, setLoading] = useState(false);
+
+  if (currentUser?.role !== 'admin' || !task.correctionReturnTo) return null;
+
+  async function handleClear() {
+    if (!window.confirm(
+      `Clear the correction flag on this task? It will no longer auto-return to "${task.correctionReturnTo}" once resubmitted — you'll need to move it manually if needed. This does not undo any data, only removes the tracking pointer.`
+    )) return;
+    setLoading(true);
+    try {
+      await clearStuckCorrectionFlag(task.id);
+    } catch {
+      // handled in hook
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClear}
+      disabled={loading}
+      className="text-xs text-gray-400 hover:text-red-600 underline disabled:opacity-50 transition-colors"
+    >
+      {loading ? '…' : '🔧 Clear stuck correction flag'}
+    </button>
   );
 }
 
@@ -1461,6 +1510,9 @@ export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate, onSal
                 Will automatically return to {task.correctionReturnTo.replace('_', ' ')} once resubmitted.
                 {task.correctionNote && ` Reason: "${task.correctionNote}"`}
               </p>
+              <div className="mt-1.5">
+                <CorrectionRescueControl task={task} />
+              </div>
             </div>
           )}
 

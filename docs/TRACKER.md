@@ -87,6 +87,91 @@
   the actual enforced caps)
 - Nothing from this session deployed anywhere; nothing committed yet
 
+**Session — 6 August 2026 (parked-item fix):**
+- Fixed `markLeadConverted` to clear the same 5 correction-tracking
+  fields already cleared identically in `submitFieldReviewDecision`
+  and `submitDocuments` — a lead converted to Completed while still
+  carrying a live correction pointer no longer stays permanently stuck
+  in "Needs Correction"
+- Tested live: Quick-Corrected a Backend task to Documents, back to
+  Backend, completed the Application Journey, marked Converted —
+  confirmed `correctionReturnTo` correctly resolved to `null`
+- One process note from this test: the fix initially appeared not to
+  work after editing, traced to a stale dev-server bundle, not a code
+  problem — resolved by a full restart + hard browser refresh (see
+  KNOWN_ISSUES.md)
+- Committed as `b8931a6`, pushed — sitting in dev, will ride along in
+  the next deployment's existing file-copy list (usePipelineActions.ts
+  already included)
+
+**Session — 7 August 2026 (parked-item fix):**
+- Fixed `reEngageLead` to route by the lead's true drop origin (read
+  from `stageHistory`) instead of always sending it to Proposal:
+  Field Review-drops still → Proposal (unchanged behavior); Survey-drops
+  → Survey with status reset to `pending`; Documents-drops → Documents;
+  Backend/Converted-drops → Documents with Application Journey data
+  cleared (treated as a fresh process after abandonment); unrecognized
+  origins safely fall back to the old Proposal behavior with a logged
+  warning
+- Also defensively clears the 5 correction-tracking fields, matching
+  the safety net already added to `markLeadConverted`
+- Counters and auto-assignment now driven by the real destination
+  stage, using the same generic `pipelineCounts.${stage}` pattern
+  already proven in `adminOverrideStage`, rather than hardcoded values
+- Tested live across all 7 scenarios: unchanged Field Review path, all
+  4 new drop-origin routings, the correction-field safety net, and
+  counter/auto-assign correctness for each destination
+- Committed as `a7489e5` — held from push, not yet in the next
+  deployment's file-copy list (usePipelineActions.ts already covered
+  there from the earlier corruption fix)
+
+**Session — 7 August 2026, part 1 (parked-item fixes):**
+- Confirmed `completeJourneyStep`/`saveJourneyStepDraft` never touch
+  `pipelineStage`, `status`, or correction fields — not the same bug
+  family as `markLeadConverted`/`reEngageLead`, no fix needed
+- Live-tested Full Restart's status-preservation behavior directly
+  (forward and backward moves, plus direct-to-Converted) — confirmed
+  identical to Quick Correction's already-proven behavior
+- Fixed `PipelineTracker.tsx`'s dropped-task display: now derives the
+  true drop origin from the last `stageHistory` entry instead of
+  hardcoding Field Review, so a task dropped straight from Survey no
+  longer visually shows Proposal/Field Review as falsely "done" —
+  cosmetic fix only, real stageHistory data was always correct
+- Tested live: Survey-dropped, Field-Review-dropped, and
+  Documents/Backend-dropped tasks all now show the correct pills
+- Uncommitted, held for a bundled commit with other pending changes
+
+**Session — 7 August 2026, part 2 (parked-item fixes):**
+- Built a soft warning in Admin Override: selecting a stage for Quick
+  Correction that isn't genuinely earlier than the task's current
+  stage now shows a red inline warning plus a stronger confirm-dialog
+  message, nudging toward Full Restart instead — does not block the
+  action, purely advisory
+- Extracted stage-ordering logic (`STAGE_ORDER`/`stageIndex`) out of
+  `PipelineTracker.tsx` into a new shared `src/utils/stageOrder.ts`,
+  avoiding duplicate-logic drift; `PipelineTracker.tsx` now imports
+  from it instead of maintaining its own private copy
+- Added `clearStuckCorrectionFlag` + a new admin-only "🔧 Clear stuck
+  correction flag" rescue button, shown only when a task has a live
+  correction pointer — lets an admin manually clear it without editing
+  Firestore directly
+- Tested live: forward-move warning appears correctly; genuine
+  backward move shows no warning, unchanged original message; rescue
+  button clears the pointer and disappears afterward, confirmed in
+  Firestore
+- Uncommitted, held for a bundled commit with other pending changes
+
+**Session — 7 August 2026, part 3 (parked-item fix):**
+- Converted Dashboard's remaining 4 stat cards (Pending/In Progress/
+  Completed/Blocked) from `getDocs(...limit(1000))` to
+  `getCountFromServer`, matching the pattern already proven for the
+  Total card — removes the silent 1,000-row ceiling with zero data
+  visibility, no where() clause changed
+- Confirmed live: all four numbers render correctly, browser console
+  shows no index/precondition error, query shape unchanged from the
+  already-indexed getDocs version so no new index was needed
+- Uncommitted, held for a bundled commit with other pending changes
+
 ## Next deployment checklist (when ready)
 
 **Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact

@@ -56,7 +56,7 @@ place. **Lesson: when adding a new field to Task or AppConfig, check
 every file that independently reads that collection — there is no
 single choke point that guarantees it's covered everywhere.**
 
-## Stale-file mistakes (process, not code)
+## Stale-file and stale-server mistakes (process, not code)
 
 Multiple times this session, an old file attachment with the same
 generic filename was mistaken for a fresh one, leading to analysis of
@@ -64,3 +64,9 @@ outdated output. **Lesson: always check a file's actual reported
 modification timestamp before trusting its content as current — never
 assume the most recently *mentioned* file is the most recently
 *attached* one.**
+
+If a fix seems to have no effect despite a clean `tsc`/build/`git diff`
+confirming the source file changed correctly, check for a stale
+running dev server before suspecting the fix itself — a full restart
+(`npm run dev`) plus a hard browser refresh (Ctrl+Shift+R) should be
+the first troubleshooting step, not the last.
