@@ -14,6 +14,8 @@ project's actual memory, and they only stay useful if kept current.**
   feature, and where the code for each one lives.
 - `PARKED.md` — every known bug or improvement that's been deliberately
   deferred, with why, and enough detail to pick back up later.
+- `SUGGESTIONS.md` — real findings that don't currently harm anything
+  and aren't active work; a lower-priority sibling to `PARKED.md`.
 - `KNOWN_ISSUES.md` — root-cause explanations of real bugs found and
   fixed, so the same *pattern* of mistake is recognizable if it shows
   up somewhere else later.

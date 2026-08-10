@@ -16,6 +16,42 @@ this list should be assumed fixed unless TRACKER.md says otherwise.
   pre-override value.
 
 ## Structural / scaling risks (ahead of the 1-lakh-task goal)
+
+## Multi-AI audit findings (10 Aug 2026) — cross-checked across 7
+different AI tools + direct code verification, see TRACKER.md for
+the full methodology
+
+- **setSaleClosedManual, resetSaleClosedToAuto, clearStuckCorrectionFlag
+  only check that a user is logged in, not that they're admin.** The
+  UI hides these buttons from non-admins, but the underlying functions
+  (useTaskActions.ts) and the Firestore rules behind them don't
+  actually stop a non-admin from calling them directly. Real gap in
+  code built this same session. Not yet fixed.
+- **Confirmed real bug: offline photo upload failures silently write
+  raw base64 image data into Firestore instead of retrying.**
+  TaskQueueProcessor.tsx's catch blocks fall back to `return url` (the
+  original base64 string) on a Cloudinary upload failure, and the item
+  is dequeued as if successful — no retry ever happens. Confirmed by
+  direct code read, 10 Aug 2026. Not yet fixed.
+- **Confirmed: Firestore rules never check any active/disabled status
+  on a user account — only role.** Every role-check function is
+  `isAuth() && userRole() == '<role>'`. If a "disable user" feature
+  exists in the UI, it is not enforced at the data layer at all —
+  needs checking whether this feature is actually used before treating
+  as urgent. Confirmed by direct grep of firestore.rules, 10 Aug 2026.
+- **Deliberately parked, not planned to fix:** field-level write
+  restrictions on `tasks`/`appConfig/global` by role. Ansh's decision
+  (10 Aug 2026): field engineers and other roles need freedom to fill
+  in forms without artificial restriction; this is not a bug to fix,
+  it's the correct tradeoff for how the app is actually used. Keep as
+  a documented decision, not an open item.
+- `xlsx` dependency has 2 known high-severity vulnerabilities
+  (prototype pollution + ReDoS, no fix available upstream) — but
+  confirmed NOT currently exploitable, since the app only writes Excel
+  files, never parses untrusted ones. Low urgency despite the "high"
+  severity label. Confirmed via npm audit, 10 Aug 2026: 18 total
+  vulnerabilities (7 high, 11 moderate).
+
 - `appConfig/global` is a single Firestore document written by every
   stage transition — a write-contention risk as concurrent usage grows.
 - Denormalized counters hand-maintained across ~13 separate code paths
@@ -99,3 +135,12 @@ this list should be assumed fixed unless TRACKER.md says otherwise.
 - An unspecified issue Ansh found in the Excel export related to Sales
   Closed — beyond the missing-columns gap already fixed. Details not
   yet given.
+- users collection is readable by every authenticated user (full name/
+  email/mobile/district PII exposed to any field engineer). Real, but
+  low practical urgency for an internal-team-only app. Suggestion only.
+- Cloudinary's actual console-side upload preset restrictions (folder/
+  format/rate limits) have never been checked — the code-side setup is
+  standard/expected, but whether the preset itself is properly scoped
+  on Cloudinary's own dashboard is unverified. Suggestion only.
+- Firebase JS SDK (10.14.1) is 2 major versions behind current (12.x).
+  Not urgent; suggestion for a future routine upgrade.
