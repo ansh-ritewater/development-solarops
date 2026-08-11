@@ -54,6 +54,38 @@ the full methodology
 
 - `appConfig/global` is a single Firestore document written by every
   stage transition — a write-contention risk as concurrent usage grows.
+- **Redundant count-polling across 3 sites — confirmed real cost
+  source, not yet a scale-driven risk.** `useTabCounts` (useTasks.ts)
+  runs 9 separate `getCountFromServer` queries on a genuine 60-second
+  timer, independently in every open admin/view_only tab.
+  `useStageTaskList.ts` runs its own separate 60-second polling loop
+  for stage-specific counts (a third site, previously unflagged).
+  ReportsPage.tsx's 4 count queries are NOT part of this pattern —
+  confirmed one-time on page load, no interval, deliberately not being
+  touched (Reports is separately deferred).
+  **The proposed fix ("just read the already-maintained counter like
+  Dashboard does") is only partially true, not a clean swap:** of the
+  9 tab counts, only `all` has a genuine maintained equivalent
+  (`pipelineCounts.total_active`). `pending`/`in_progress`/`blocked`/
+  `completed` are status-based, not stage-based — no maintained
+  counter exists for these anywhere, even Dashboard's own versions of
+  these four numbers query the server (just once per page load, not on
+  a timer). `follow_up`/`overdue`/`needs_correction`/`sales_closed`
+  have no maintained counterpart at all — building one would mean new
+  denormalized counters, reopening the same counter-drift risk
+  category already documented above.
+  **Real options, none chosen yet:** (a) simply lengthen the 60s
+  interval to reduce query frequency — trivial, safe, no new risk;
+  (b) only refresh on known relevant actions instead of a blind timer
+  (partially already true — `refreshTabCounts` already fires after
+  specific actions); (c) swap only the `all` count to read
+  `pipelineCounts.total_active` directly; (d) add new maintained
+  counters for the rest, accepting drift-risk tradeoff.
+  One external audit source estimated this at roughly $150–300/month
+  across 5 always-open admin tabs at current scale — plausible order of
+  magnitude given the confirmed query count and interval, but not
+  independently verified against real Firebase billing data.
+  Confirmed via direct code read, 10 Aug 2026.
 - Denormalized counters hand-maintained across ~13 separate code paths
   — real risk of silent drift if any path is missed in a future change.
 - Reports page's hard caps (5,000 rows for charts, 500 for recent

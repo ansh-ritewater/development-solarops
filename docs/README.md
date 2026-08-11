@@ -16,11 +16,25 @@ project's actual memory, and they only stay useful if kept current.**
   deferred, with why, and enough detail to pick back up later.
 - `SUGGESTIONS.md` — real findings that don't currently harm anything
   and aren't active work; a lower-priority sibling to `PARKED.md`.
+- `NOT_YET_INVESTIGATED.md` — six categories with zero coverage in
+  either direction (load testing, real-user UX, manual accessibility,
+  workflow gap analysis, production monitoring, competitive
+  benchmarking). Different from `PARKED.md`/`SUGGESTIONS.md`, which
+  hold things that were found — this file holds things never looked at.
 - `KNOWN_ISSUES.md` — root-cause explanations of real bugs found and
   fixed, so the same *pattern* of mistake is recognizable if it shows
   up somewhere else later.
 - `ARCHITECTURE.md`, `SCHEMA.md`, `PIPELINE_FLOW.md` — deeper technical
   references, built from careful fresh reads of the real code.
+- `SCALABILITY.md` — code-derived scaling analysis ahead of the
+  1-lakh-task goal. Note: its *performance* claims were inference from
+  reading code and are superseded by the measured findings in
+  `PERFORMANCE.md`; its scaling/cost analysis still stands.
+- `PERFORMANCE.md` — the first real *measured* performance audit
+  (Lighthouse + Network panel + targeted code reads, 10 Aug 2026).
+  Supersedes the inferred performance claims in `SCALABILITY.md`.
+- `NOTIFICATIONS.md` — research and design reference for in-app and
+  push notifications. Research only; nothing built.
 
 ## Two separate projects — do not confuse them
 

@@ -172,6 +172,27 @@
   already-indexed getDocs version so no new index was needed
 - Uncommitted, held for a bundled commit with other pending changes
 
+**Session — 10 August 2026 (measured performance audit):**
+- Ran the first real performance measurement in the project's history:
+  Lighthouse (mobile + desktop) and Network-panel analysis against
+  live production, plus 4 targeted read-only code checks
+- Full findings in `docs/PERFORMANCE.md`. Nothing implemented.
+- **Two leading hypotheses were disproven by measurement:** Firestore
+  region (correctly `asia-south1`) and `reconcilePipelineCounts`
+  scanning on every dashboard load (it does not scan). A third —
+  missing Cloudinary transformations — was confirmed.
+- Key measured findings: a 6-second gap between first paint (1.2 s
+  desktop) and data arrival (7.40 s); one 3.6 MB Firestore listener
+  stream per page load; 59.5% of all shipped JavaScript unused
+  (376.5 of 632.9 KiB); Firebase SDK alone costing 4.8 s of mobile CPU;
+  Google Analytics accounting for 23% of all JS on an internal tool
+- Also corrected an earlier wrong assumption: accessibility is
+  genuinely good (94–95), not a weak spot
+- Preceded by a seven-source multi-AI code audit (see the 10 Aug
+  entry in `PARKED.md`) — that audit's static analysis was necessary
+  but insufficient; the actual performance answers required runtime
+  measurement
+
 ## Next deployment checklist (when ready)
 
 **Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact
