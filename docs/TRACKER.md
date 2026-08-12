@@ -221,13 +221,41 @@
   by Ansh on a real task with a completed photo-type Application
   Journey step — photos now render correctly in the admin Task Detail
   Drawer. Fully resolved, not just build-clean.**
-- (1) deferred, not fixed — real fix needs new query parameters
-  threaded through two functions, a new composite index in both
-  Firebase projects, an interface change to carry state/district
-  onto the Engineer dropdown's data, and a product decision on how
-  State should interact with the existing Date-filter mutual-
-  exclusion scheme. Scoped separately, see `PARKED.md`.
-- Nothing deployed. Nothing else in `src/` touched this session.
+- (1) — Ansh's scoping decision, 12 Aug 2026: fix ONLY the
+  State-filter combination with Created-Date/Due-Date, keeping them
+  freely combinable (not mutually exclusive like Engineer/District);
+  leave State-vs-every-other-tab, and Lead Source entirely, deferred.
+  Rationale: an earlier, broader "Date Filter combined with other
+  tabs" feature was already built once and fully reverted on 28 July
+  2026 due to badge-count/Load-More problems — the narrow scope
+  avoids that exact danger zone (see `PARKED.md` for the full
+  precedent write-up).
+- Implemented: `stateFilter` threaded as a 7th parameter through
+  `buildAdminQuery`/`subscribeToFilter` (both the live query and
+  both `loadMore` branches) in `useTasks.ts`, and through
+  `fetchAllTasksForExport`'s Date/Due-Date branches in
+  `TasksPage.tsx`; added to the re-subscribe `useEffect`'s
+  dependency array. Two new composite indexes added to
+  `firestore.indexes.json` (`archived+state+createdAt`,
+  `archived+state+dueDate`) and deployed to the `development-solarops`
+  Firebase project via `firebase deploy --only firestore:indexes`.
+  Verified via full `git diff` line-by-line against the exact spec
+  before deployment — not just a clean build.
+- **Confirmed 12 Aug 2026: live-tested by Ansh** — State+Created-Date
+  and State+Due-Date both return correct results; "Load More" with
+  either combination active was specifically tested (the exact
+  failure pattern that caused the 28 July revert) and confirmed
+  correct; Engineer and District filters confirmed unaffected.
+  **Fully resolved for this narrow scope.**
+- Remaining scope (State vs. every other tab, Lead Source, and a
+  newly-found related display bug) stays deferred — see `PARKED.md`'s
+  "State filter — full scope for later" section, updated same day.
+- Final state of this session: the two indexes above were deployed —
+  to `development-solarops` (dev) ONLY, nothing to production. No
+  commit has been made for anything from this session yet — the BUG 2
+  photo-rendering fix, the State+Date/Due-Date fix, and every doc
+  correction across this session are all still sitting locally,
+  pending Ansh's own commit.
 
 ## Next deployment checklist (when ready)
 

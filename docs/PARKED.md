@@ -49,6 +49,83 @@ this list should be assumed fixed unless TRACKER.md says otherwise.
   scheme or stay freely combinable — currently State and Lead Source
   are the only two filters not participating in that scheme at all.
 
+## State filter — full scope for later (narrow fix done first, see
+TRACKER.md; this is the deferred remainder)
+
+A minimal fix (State combinable with Date/Due-Date filters only) was
+implemented AND live-tested 12 Aug 2026 — see TRACKER.md's 12 Aug
+entry for full detail, including the two new indexes deployed to
+dev. This section captures everything still deliberately NOT done —
+read on for the full remaining scope.
+
+**⚠️ Important historical precedent, confirmed from project history:**
+a "Date Filter" feature combined with other Tasks-page tabs was
+already built once, before this session, and was fully reverted on
+28 July 2026 — NOT because the task-list query logic broke, but
+because of an unresolved Dashboard **Pending-count mismatch** and a
+**"Needs Correction" Load More error**. The danger zone for this
+category of change has already been identified empirically: it's
+the badges/counts and Load More pagination surrounding a filter, not
+the raw list query itself. Any future attempt at the broader scope
+below MUST specifically audit `useTabCounts` (useTasks.ts) and every
+Dashboard stat card BEFORE considering it done — not just confirm the
+visible task list looks right.
+
+**What "State works correctly under every tab" actually requires,**
+if ever attempted:
+- Roughly 9-10 new composite indexes (one shared index per
+  tab-shape state would combine with — status tabs share one index
+  since status is just an equality value; same for pipeline-stage
+  tabs — plus follow_up, overdue, needs_correction, sales_closed,
+  my_tasks, and the two already covered by the narrow fix), deployed
+  to both dev and prod.
+- The identical `where('state', '==', stateFilter)` treatment in
+  THREE separate places, which must all agree or repeat the
+  project's own documented "Load More returns a different shape than
+  the initial page" bug pattern (see `KNOWN_ISSUES.md`):
+  `buildAdminQuery`'s live-query switch, `fetchAllTasksForExport`'s
+  `baseQMap`, and the `loadMore` switch inside `subscribeToFilter`.
+- A full audit of every badge/count that currently doesn't factor in
+  State at all, to confirm none of them silently disagree with the
+  now-filtered list — this is the exact category of bug the 28 July
+  revert was caused by.
+- Engineer and District explicitly stay OUT of this scope (per Ansh's
+  12 Aug 2026 decision) — no new State+Engineer or State+District
+  index/query work, keeping this bounded to State-vs-tabs only, not
+  a full filter-system redesign.
+
+**Two things confirmed NOT broken, so nobody re-investigates them:**
+- The Excel export (`fetchAllTasksForExport`) has no page-size cap —
+  it drains the entire matching query via cursor pagination before
+  applying the client-side State check. It is already complete and
+  correct for State today, unlike the live on-screen list. Confirmed
+  12 Aug 2026.
+- Lead Source has the exact identical client-side-only bug as State
+  (confirmed via both a direct code read and an independent 8-part
+  Claude Code audit, 12 Aug 2026) but was deliberately NOT given the
+  same narrow Date/Due-Date fix in this session — Ansh's decision,
+  12 Aug 2026, to keep this session's change small. Whether Lead
+  Source ever gets the same treatment is a separate open decision.
+- **New, found via live testing 12 Aug 2026 (not from code reading):**
+  the "Showing N tasks" text and the "Load More Tasks" button's
+  visibility are both driven by `tasks.length`/`hasMore` — the RAW
+  count of whatever the current tab's server query fetched — not by
+  how many of those actually pass the client-side State (or Lead
+  Source) check. Confirmed directly from `TasksPage.tsx`: the block
+  reads literally `Showing {tasks.length} tasks`. Real symptom
+  observed live: selecting State=Gujarat with no date filter active
+  (i.e. under the "All"/"Pending" tabs, which never received the
+  narrow fix) shows only 1 matching card on screen while the text
+  underneath says "Showing 50 tasks" with an active Load More
+  button — because 50 raw tasks were fetched and only 1 happened to
+  be Gujarat. This is a distinct visible symptom of the exact same
+  root cause already documented above (State/Lead Source are not
+  real server-side filters outside the Date/Due-Date case just
+  fixed) — not a new, separate bug category. Correct fix, whenever
+  the broader scope above is picked up: show the post-filter
+  (`visible.length`) count instead of the raw fetched count, and/or
+  make `hasMore` itself filter-aware.
+
 ## Correction / Admin Override family (related bugs, not yet done)
 - Confirmed 7 Aug 2026 via direct code read: `completeJourneyStep` and
   `saveJourneyStepDraft` never touch `pipelineStage`, `status`, or any
