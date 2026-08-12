@@ -432,6 +432,16 @@
       "queryScope": "COLLECTION",
       "density": "SPARSE_ALL",
       "fields": [
+        { "fieldPath": "archived",    "order": "ASCENDING"  },
+        { "fieldPath": "saleClosed",  "order": "ASCENDING"  },
+        { "fieldPath": "updatedAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "density": "SPARSE_ALL",
+      "fields": [
         { "fieldPath": "archived",       "order": "ASCENDING" },
         { "fieldPath": "saleClosed",     "order": "ASCENDING" },
         { "fieldPath": "pipelineStage",  "order": "ASCENDING" }

@@ -740,7 +740,7 @@ export function TasksPage() {
       const singleStageFilters = [
         'pipeline_proposal', 'pipeline_field_review', 'pipeline_documents', 'pipeline_backend',
         'converted', 'dropped', 'archived', 'pending', 'in_progress',
-        'completed', 'blocked', 'follow_up', 'overdue',
+        'completed', 'blocked', 'follow_up', 'overdue', 'sales_closed',
       ];
       if (singleStageFilters.includes(filter)) return visible;
 

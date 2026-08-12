@@ -427,10 +427,14 @@ export function useTasks() {
       case 'sales_closed':
         // Includes dropped-after-closed leads by design — this list is not
         // filtered by pipelineStage, unlike the badge count in useTabCounts.
+        // Ordered by updatedAt (not createdAt) so the most recently closed
+        // OR most recently admin-edited task shows first — confirmed 12 Aug
+        // 2026 that every saleClosed write site and every admin-edit action
+        // stamps updatedAt in the same write, so this ordering is reliable.
         q = query(base,
           where('archived',   '==', false),
           where('saleClosed', '==', true),
-          orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
+          orderBy('updatedAt', 'desc'), limit(PAGE_SIZE));
         break;
       case 'my_tasks':
         q = query(base,
@@ -630,7 +634,7 @@ export function useTasks() {
               return [
                 where('archived',   '==', false),
                 where('saleClosed', '==', true),
-                orderBy('createdAt', 'desc'),
+                orderBy('updatedAt', 'desc'),
               ];
             default:
               return [where('archived','==',false), orderBy('priorityScore','asc'), orderBy('updatedAt','desc')];
