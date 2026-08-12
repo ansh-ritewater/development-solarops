@@ -143,7 +143,10 @@ tracks subsidy/portal status).
 **Stage history:** `stageHistory?: StageHistoryEntry[]` — every
 transition ever made, `{ fromStage?, toStage, timestamp, actorUid?,
 actorName, actorRole, note? }`. This is the durable audit trail behind
-several features (e.g. `needsResurvey` reads its last entry).
+several features (e.g. `needsResurvey` reads its last entry). Capped
+at 50 entries at 7 of 8 write sites in `usePipelineActions.ts` — NOT
+universal; see `SUGGESTIONS.md`/`SCALABILITY.md` for the 3 uncapped
+exceptions (corrected 12 Aug 2026).
 
 **Team assignment (proposal/backend/logistics/installation):**
 `proposalAssignedTo?`, `proposalAssignedToName?`,

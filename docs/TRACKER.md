@@ -139,7 +139,9 @@
   cosmetic fix only, real stageHistory data was always correct
 - Tested live: Survey-dropped, Field-Review-dropped, and
   Documents/Backend-dropped tasks all now show the correct pills
-- Uncommitted, held for a bundled commit with other pending changes
+- Committed as part of `0916375` (8 Aug), pushed to origin/main —
+  confirmed NOT uncommitted, corrected 12 Aug 2026 after a direct
+  git-log/git-diff check found this note was stale
 
 **Session — 7 August 2026, part 2 (parked-item fixes):**
 - Built a soft warning in Admin Override: selecting a stage for Quick
@@ -159,7 +161,8 @@
   backward move shows no warning, unchanged original message; rescue
   button clears the pointer and disappears afterward, confirmed in
   Firestore
-- Uncommitted, held for a bundled commit with other pending changes
+- Committed as part of `0916375` (8 Aug), pushed — corrected 12 Aug
+  2026, same stale-note issue as above
 
 **Session — 7 August 2026, part 3 (parked-item fix):**
 - Converted Dashboard's remaining 4 stat cards (Pending/In Progress/
@@ -170,7 +173,8 @@
 - Confirmed live: all four numbers render correctly, browser console
   shows no index/precondition error, query shape unchanged from the
   already-indexed getDocs version so no new index was needed
-- Uncommitted, held for a bundled commit with other pending changes
+- Committed as part of `0916375` (8 Aug), pushed — corrected 12 Aug
+  2026, same stale-note issue as above
 
 **Session — 10 August 2026 (measured performance audit):**
 - Ran the first real performance measurement in the project's history:
@@ -193,22 +197,65 @@
   but insufficient; the actual performance answers required runtime
   measurement
 
+**Session — 12 August 2026 (two user-reported bugs, investigated):**
+- Investigated two bugs via an 8-part read-only Claude Code audit,
+  independently cross-checked against a direct source read: (1) the
+  Tasks-page State and Lead Source dropdown filters only ever filter
+  the current in-memory page of loaded tasks — neither is passed
+  into `buildAdminQuery`/`subscribeToFilter`, neither appears in the
+  query-rebuild `useEffect`'s dependency array, and no Firestore
+  index exists for either field. Engineer, District, Date, and Due
+  Date filters are all confirmed genuinely server-side by contrast.
+  Full detail moved to `PARKED.md`. (2) `TaskDetailDrawer.tsx`'s
+  Application Journey step renderer has no `step.type === 'photo'`
+  branch at all — an admin never sees journey-step photos, for any
+  photo-type step, not just one specific step. Confirmed via
+  `grep "photoUrls"` returning zero matches in that file.
+- Fixed (2): added the missing photo-rendering block to
+  `TaskDetailDrawer.tsx`, placed as a sibling to the existing
+  `step.status === 'done' && step.realDate` block, matching
+  `BackendPage.tsx`'s exact structure (which also maps over all
+  steps, not just completed ones — a closer match than
+  `BackendWorkDrawer.tsx`, which only ever loops over already-done
+  steps). `npm run build` clean, exit 0. **Confirmed 12 Aug 2026: live-tested
+  by Ansh on a real task with a completed photo-type Application
+  Journey step — photos now render correctly in the admin Task Detail
+  Drawer. Fully resolved, not just build-clean.**
+- (1) deferred, not fixed — real fix needs new query parameters
+  threaded through two functions, a new composite index in both
+  Firebase projects, an interface change to carry state/district
+  onto the Engineer dropdown's data, and a product decision on how
+  State should interact with the existing Date-filter mutual-
+  exclusion scheme. Scoped separately, see `PARKED.md`.
+- Nothing deployed. Nothing else in `src/` touched this session.
+
 ## Next deployment checklist (when ready)
 
 **Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact
 files listed below.**
 
-1. Copy these 6 files from dev to `D:\SolarOps`:
+1. Copy these 11 files from dev to `D:\SolarOps` (corrected 12 Aug
+   2026 — the previous 7-file list was verified incomplete: it
+   omitted 4 files including a new util that TaskDetailDrawer.tsx
+   imports, which would have broken the prod build):
+   `src/components/offline/TaskQueueProcessor.tsx`,
+   `src/components/pipeline/PipelineTracker.tsx`,
    `src/components/tasks/TaskDetailDrawer.tsx`,
    `src/firebase/initAppConfig.ts`,
    `src/hooks/usePipelineActions.ts`,
+   `src/hooks/useTaskActions.ts`,
+   `src/pages/DashboardPage.tsx`,
    `src/pages/TasksPage.tsx`,
    `src/pages/TemplatePage.tsx`,
-   `src/utils/needsResurvey.ts` (new file)
-1a. Also include `src/components/offline/TaskQueueProcessor.tsx` (the
-    15MB→10MB/20MB toast-text fix) in the file copy — small, unrelated
-    to the corruption fix, but also uncommitted and ready.
-2. Verify `tsc`/build clean in the prod folder
+   `src/utils/needsResurvey.ts` (new file),
+   `src/utils/stageOrder.ts` (new file)
+2. Verify clean with `npm run build` in the prod folder — NOT
+   `tsc --noEmit` alone. Confirmed 12 Aug 2026: `tsc --noEmit` run at
+   the project root is a no-op on this project's solution-style
+   tsconfig.json (it resolves zero input files and always exits 0,
+   even against a deliberately broken tree). `npm run build` (which
+   runs `tsc -b && vite build`) is the only command that actually
+   type-checks the code — use that for every future verification.
 3. Deploy hosting (no rules or index changes needed for this one)
 4. Click "Check Status/Stage Corruption" on production — record the
    real count

@@ -453,18 +453,14 @@ roles**, worth knowing before trusting these numbers at a glance:
   Survey-submission flag (see `SCHEMA.md`'s `status` vs `pipelineStage`
   distinction), not a pipeline-stage or conversion measure at all.
 
-## PipelineTracker — confirmed, the known display quirk from PARKED.md is still present
+## PipelineTracker — FIXED 7 Aug 2026 (this entry was stale, corrected 12 Aug 2026)
 
-Read fresh from `PipelineTracker.tsx`: for a `dropped` task, the
-component **hardcodes** `currentIdx = stageIndex('field_review')`
-regardless of which stage the task actually dropped from — a task
-dropped straight from Survey (e.g. via Field Review rejecting it, or an
-admin override) still renders Survey, Proposal, **and** Field Review
-all as green "done" pills, purely because the code always treats
-"dropped" as if it happened from Field Review. The real per-transition
-data in `stageHistory` is correct and unaffected — this is a display-only
-bug in the pill-row rendering, exactly as `PARKED.md` describes it, not
-yet fixed as of this read.
+This entry previously described a live bug — it no longer is one.
+`PipelineTracker.tsx` was fixed in commit `0916375` (7 Aug 2026): it
+now imports `stageIndex`/`isBackwardMove` from the new shared
+`src/utils/stageOrder.ts` and derives a dropped task's true origin
+from the last `stageHistory` entry, instead of hardcoding
+`field_review`. Confirmed via direct code read, 12 Aug 2026.
 
 ## Cross-check finding: `BackendStageData`'s legacy fields appear unused in the current write path
 

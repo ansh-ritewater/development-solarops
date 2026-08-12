@@ -31,10 +31,24 @@ a design change that touches it, a team change), move it to
   guard — resulting in broken buttons/error screens for that role
   instead of a clean "not allowed" message. Cosmetic/UX only, cheap to
   fix whenever convenient.
-- **Unresolved disagreement between two audit sources:** whether
-  `stageHistory` is genuinely capped at every single write site, or
-  whether `submitProposal`/`useTaskSubmit` specifically use `arrayUnion`
-  without the cap. Never independently settled with a direct fresh
-  code read. Not urgent, but `SCHEMA.md`/`PIPELINE_FLOW.md` currently
-  state this is capped "everywhere" with more confidence than has
-  actually been verified for these two specific functions.
+- **RESOLVED 12 Aug 2026, via direct code read:** `stageHistory` is
+  capped at 7 of 10 write sites (`existingHistory.slice(-49)` in
+  `usePipelineActions.ts` at the 7 stage-transition functions), but
+  genuinely UNCAPPED at 3: `usePipelineActions.ts`'s `submitProposal`
+  (line ~156, `arrayUnion` with no cap), `useTaskSubmit.ts`'s
+  survey→proposal transition (line ~161, same pattern), and
+  `TaskQueueProcessor.tsx`'s offline-queue drain (line ~260, same
+  pattern). In practice this is self-healing — the next capped write
+  trims any overgrown array back to 50 — so it's a documentation-
+  accuracy issue, not an active bug. `SCHEMA.md`/`PIPELINE_FLOW.md`/
+  `SCALABILITY.md` overstate the cap as universal; corrected there.
+- **Two unauthenticated/under-protected surfaces in `firestore.rules`,
+  confirmed 12 Aug 2026, not previously documented:** `errorLogs`
+  allows `create: if isAuth()` — any authenticated user, any role,
+  can write unlimited arbitrary log documents, with no rate limiting
+  or App Check behind it. Separately, `invites` allows `read: if
+  isAuth() || resource.data.status == 'pending'` — an unauthenticated
+  party can read any still-pending invite, exposing name/email/role.
+  Low practical risk: the invite-link system is already confirmed
+  genuinely orphaned elsewhere in `PARKED.md` (`createInvite` has no
+  caller anywhere in the UI).

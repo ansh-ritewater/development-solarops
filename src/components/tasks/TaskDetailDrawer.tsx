@@ -1994,6 +1994,19 @@ export function TaskDetailDrawer({ task, onClose, onUpdate, onAdminUpdate, onSal
                           })()}
                         </p>
                       )}
+                      {step.type === 'photo' && step.photoUrls?.length > 0 && (
+                        <div className="grid grid-cols-4 gap-1 mt-1">
+                          {step.photoUrls.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" download>
+                              <img
+                                src={url}
+                                alt={`Step photo ${i + 1}`}
+                                className="w-full aspect-square object-cover rounded border border-green-200"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       {idx === task.currentStepIndex && step.status !== 'done' && (
                         <p className="text-[10px] text-orange-500 mt-0.5">
                           ▶ Current step

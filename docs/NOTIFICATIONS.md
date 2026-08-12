@@ -133,9 +133,15 @@ by building that first.
   confirmed in `vite.config.ts` and `docs/ARCHITECTURE.md`) — this is
   the foundation push notifications would build on top of; it does not
   need to be built from scratch.
-- **Zero FCM/push-related code currently exists anywhere in `src/`**
-  (confirmed via fresh grep, 7 Aug 2026) — this is a genuinely clean
-  slate, not a partially-started feature.
+- **Not a fully clean slate — corrected 12 Aug 2026.** There is
+  dormant, unused scaffolding: `User.fcmToken`/`fcmTokenUpdatedAt` in
+  `types/index.ts`, `useUserActions.ts` writing both as `null` at
+  user creation, `useUsers.ts` mapping them back on read, and
+  `UserCard.tsx` rendering a small indicator when `user.fcmToken` is
+  truthy. Nothing anywhere requests a token or sends a push — it's
+  leftover scaffolding from something started once and abandoned,
+  not active push code. Still effectively a clean slate for the real
+  implementation work, just not a literally blank one.
 - **Presence infrastructure (`usePresence.ts`/`useOnlineUsers.ts`,
   Realtime Database) already exists** and could inform (not replace)
   notification logic — e.g. deciding whether to also attempt a push

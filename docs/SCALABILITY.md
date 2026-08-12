@@ -107,12 +107,16 @@ incident today.
 
 ## 5. Task document size growth risk
 
-**`stageHistory` — bounded, confirmed.** Every one of the 7 write
-sites in `usePipelineActions.ts` (lines 342, 447, 503, 629, 831, 1067,
-1164) caps it identically via `existingHistory.slice(-49)` before
-appending the new entry — so `stageHistory` can never exceed 50
-entries regardless of how many times a task moves stages over its
-lifetime. This is a real, consistently-applied cap.
+**`stageHistory` — bounded at MOST write sites, corrected 12 Aug
+2026.** 7 of `usePipelineActions.ts`'s 8 `stageHistory` write sites
+(lines 342, 447, 503, 629, 831, 1067, 1164) cap it via
+`existingHistory.slice(-49)` before appending. **3 sites across the
+codebase do NOT cap it** — `usePipelineActions.ts`'s `submitProposal`
+(~line 156), `useTaskSubmit.ts`'s survey→proposal transition (~line
+161), and `TaskQueueProcessor.tsx`'s offline-queue drain (~line 260)
+all use uncapped `arrayUnion`. Self-healing in practice (the next
+capped write trims it back to 50), so not an active production
+concern — but "every write site caps it" was inaccurate.
 
 **`applicationJourneySteps` — bounded by design, not by code.** This
 array's length is fixed to however many steps exist in the admin-

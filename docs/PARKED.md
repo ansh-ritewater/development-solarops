@@ -4,6 +4,51 @@
 Everything here is a known, deliberately deferred item. Nothing in
 this list should be assumed fixed unless TRACKER.md says otherwise.
 
+## Confirmed bugs — found 12 Aug 2026, not yet fixed
+
+- **Tasks-page State and Lead Source filters are client-side-only —
+  confirmed via direct code read AND an independent 8-part audit,
+  both agreeing exactly.** `useTasks.ts`'s `buildAdminQuery`/
+  `subscribeToFilter` take six parameters (`filter`, `searchTerm`,
+  `engineerUid`, `districtFilter`, `dateFilter`, `dueDateFilter`) —
+  no `stateFilter`, no `leadSourceFilter`. Both exist only as
+  post-fetch predicates inside `TasksPage.tsx`'s
+  `taskMatchesActiveFilters()`, filtering whatever ~50 tasks
+  (200 if a date filter is active) happen to already be loaded.
+  Both are also absent from the query-rebuild `useEffect`'s
+  dependency array, so selecting either never even re-subscribes.
+  Engineer and District are confirmed genuinely server-side by
+  contrast — real `where()` queries in both the live listener and
+  the Excel-export path, matching the existing `district+archived+
+  updatedAt` index. No Firestore index exists for `state` or
+  `leadSource` at all — `grep "\"state\""` against
+  `firestore.indexes.json` returns nothing, consistent with the
+  field never having been given real server-side treatment.
+  One consequence already confirmed: the on-screen list and the
+  Excel export can silently disagree when a State/Lead-Source
+  filter is active, since `fetchAllTasksForExport` drains the full
+  matching query then applies the same client-side predicate —
+  getting the right answer where the live list doesn't.
+- **The State→District cascade already works** (`config.
+  districtsByState?.[stateFilter]`, selecting a state clears an
+  incompatible district) — nothing to build there.
+- **A State→Engineer cascade does not exist, and the data needed
+  for it is discarded before it reaches the dropdown.** `useUsers.ts`
+  correctly maps `state`/`district` off each user document, but
+  `useFieldEngineers.ts` (the hook that actually feeds the Engineer
+  dropdown) narrows every user down to `{uid, displayName,
+  engineerCode, mobileNumber, email}` — state/district are dropped
+  in that projection. Confirmed via direct read of both hooks.
+- Real fix needs: `stateFilter`/`leadSourceFilter` threaded into
+  `buildAdminQuery`/`subscribeToFilter` and the re-subscribe
+  dependency array; a new composite index (likely `state+archived+
+  updatedAt`, mirroring the existing `district+archived+updatedAt`)
+  deployed to both dev and prod; extending `FieldEngineer`'s shape
+  if the Engineer cascade is wanted; and a decision on whether State
+  should join the existing Engineer/District/Date mutual-exclusion
+  scheme or stay freely combinable — currently State and Lead Source
+  are the only two filters not participating in that scheme at all.
+
 ## Correction / Admin Override family (related bugs, not yet done)
 - Confirmed 7 Aug 2026 via direct code read: `completeJourneyStep` and
   `saveJourneyStepDraft` never touch `pipelineStage`, `status`, or any
@@ -27,12 +72,22 @@ the full methodology
   (useTaskActions.ts) and the Firestore rules behind them don't
   actually stop a non-admin from calling them directly. Real gap in
   code built this same session. Not yet fixed.
-- **Confirmed real bug: offline photo upload failures silently write
-  raw base64 image data into Firestore instead of retrying.**
-  TaskQueueProcessor.tsx's catch blocks fall back to `return url` (the
-  original base64 string) on a Cloudinary upload failure, and the item
-  is dequeued as if successful — no retry ever happens. Confirmed by
-  direct code read, 10 Aug 2026. Not yet fixed.
+- **Confirmed real bug, escalation path confirmed 12 Aug 2026: offline
+  photo upload failures silently write raw base64 image data into
+  Firestore instead of retrying, AND this can cascade into losing an
+  entire field submission.** `TaskQueueProcessor.tsx`'s catch blocks
+  (two sites — field photos and completion photos) fall back to
+  `return url` (the original base64 string) on a Cloudinary upload
+  failure, and the item is dequeued as if successful — no retry ever
+  happens. Base64 inflates payload size ~33%; if two or three photos
+  fail this way on one submission, the resulting task document can
+  approach Firestore's 1MB hard limit. When that happens, the *next*
+  write attempt throws instead, the item retries up to `MAX_ATTEMPTS
+  = 5`, and is then dequeued with only a `console.error` — no user-
+  facing notification. Net effect: a field engineer's entire survey
+  submission for that visit can be silently and permanently lost.
+  Confirmed by direct code read, 10 Aug 2026 and 12 Aug 2026. Not yet
+  fixed.
 - **Confirmed: Firestore rules never check any active/disabled status
   on a user account — only role.** Every role-check function is
   `isAuth() && userRole() == '<role>'`. If a "disable user" feature
@@ -134,8 +189,17 @@ the full methodology
   this is a deferred decision, not a resolved one.
 
 ## Hygiene / hardening (low urgency, explicitly deferred)
-- Prod Firestore index cleanup — ~10 old orphaned indexes never removed
-  from production (dev was already cleaned up).
+- Prod Firestore index cleanup — 10 orphaned indexes confirmed via a
+  direct reconciliation against a real gcloud export, 12 Aug 2026
+  (49 declared, 58 deployed, 0 missing, 10 orphaned — exact resource
+  IDs: `CICAgOi39IkK`, `CICAgNi4t5oK`, `CICAgPjChIAK` — all 3
+  `titleLower` variants; `CICAgJj7z4EK`, `CICAgJjFqZMK`,
+  `CICAgNi47oMK`, `CICAgJjmnIgK` — all 4 `pipelineAssignees.*`
+  variants; `CICAgLiIkYMK`, `CICAgNi4-ZIK` — the vestigial
+  logistics/installation variants; `CICAgNjpgYIK` — the legacy
+  no-`archived` proposal variant). Dev was already cleaned up. Safe
+  to delete via Firebase Console — deleting an index never touches
+  document data.
 - Custom auth claims (to replace a per-request Firestore read for role
   checks).
 - Tightening `appConfig` write permissions.
