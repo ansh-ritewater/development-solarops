@@ -126,6 +126,30 @@ if ever attempted:
   (`visible.length`) count instead of the raw fetched count, and/or
   make `hasMore` itself filter-aware.
 
+- **Confirmed 12 Aug 2026: the Excel export has no dedicated query
+  for the Sales Closed tab.** `fetchAllTasksForExport`'s `baseQMap`
+  lookup table has no `sales_closed` key, so exporting from that tab
+  silently falls through to the generic default branch — draining
+  the ENTIRE non-archived tasks collection via `drainQuery` (no
+  limit, batches of 500, capped only at the global 20,000-task
+  export ceiling), then filtering down to `saleClosed === true`
+  client-side. Not a correctness bug — the export result is still
+  accurate — but it's a real cost/efficiency gap that will get
+  worse as the task collection grows toward the platform's 1-lakh
+  goal. Real fix, whenever picked up: add a `sales_closed` entry to
+  `baseQMap` using `where('saleClosed','==',true)` directly, the
+  same way every other tab's export branch already does it.
+- **Related, minor, to watch after the Sales Closed ordering fix
+  ships:** the existing `archived+saleClosed+createdAt` composite
+  index (already deployed to both dev and production as part of the
+  original Sales Closed feature) may become a newly-orphaned index
+  once the live query switches to ordering by `updatedAt` instead —
+  nothing else in the codebase queries `saleClosed` ordered by
+  `createdAt` after this fix. Not urgent — same safe-to-delete-later
+  category as the 10 already-documented prod orphans above. Worth
+  re-checking with a real index audit once the fix is confirmed
+  live in production, not before.
+
 ## Correction / Admin Override family (related bugs, not yet done)
 - Confirmed 7 Aug 2026 via direct code read: `completeJourneyStep` and
   `saveJourneyStepDraft` never touch `pipelineStage`, `status`, or any

@@ -220,7 +220,8 @@
   steps). `npm run build` clean, exit 0. **Confirmed 12 Aug 2026: live-tested
   by Ansh on a real task with a completed photo-type Application
   Journey step — photos now render correctly in the admin Task Detail
-  Drawer. Fully resolved, not just build-clean.**
+  Drawer. Fully resolved, not just build-clean.** (committed as
+  `2d4f29e`, outside this session's own commit flow)
 - (1) — Ansh's scoping decision, 12 Aug 2026: fix ONLY the
   State-filter combination with Created-Date/Due-Date, keeping them
   freely combinable (not mutually exclusive like Engineer/District);
@@ -257,12 +258,51 @@
   correction across this session are all still sitting locally,
   pending Ansh's own commit.
 
+**Session — 12 August 2026 (Sales Closed recency fix):**
+- Fixed the Sales Closed tab (admin/view_only only) to order by
+  `updatedAt` DESC instead of `createdAt` DESC, and removed it from
+  the stage-priority client-side re-sort (added to
+  `singleStageFilters` in `TasksPage.tsx`) — so the tab now shows
+  whichever sales-closed task was most recently touched (marked
+  Closed, OR any later admin edit at all) at the top, regardless of
+  what pipeline stage it currently sits in. Previously, stage
+  (Backend > Field Review > ... > Completed) took priority over
+  recency, meaning an old untouched Backend task could outrank a
+  Completed task edited minutes ago.
+- Verified beforehand: every `saleClosed` write site (auto-detection
+  on survey submit, auto-detection on Documents submit, manual
+  toggle, reset-to-auto) and every admin-edit action in
+  `useTaskActions.ts` stamps `updatedAt` in the same write, with zero
+  exceptions found — confirmed via direct code read before building
+  on this assumption.
+- Added 1 new composite index: `archived+saleClosed+updatedAt`.
+  Deployed to `development-solarops` and confirmed `Enabled` —
+  consistent with the live test below succeeding with no "requires
+  an index" error, the same failure mode seen earlier this session
+  when an index was still building.
+- `npm run build` clean, exit 0; full `git diff` verified line-by-line
+  against the exact spec before accepting the change, matching the
+  same rigor as every fix this session — a mistaken swap of only one
+  of the two `orderBy` call sites would have compiled cleanly and
+  gone undetected without this check.
+- **Confirmed 12 Aug 2026: live-tested by Ansh** — an FE completing
+  the three payment fields correctly floats the task to the top
+  immediately. Both scenarios verified: a newly-closed task, and an
+  already-closed task in an earlier pipeline stage getting edited
+  later and correctly overtaking a higher-stage sales-closed task
+  that hadn't been touched as recently.
+- Related finding from this same investigation, NOT fixed, see
+  `PARKED.md`: the Excel export has no dedicated Sales Closed query
+  branch (falls through to a full-collection drain); the existing
+  `archived+saleClosed+createdAt` index may become newly orphaned
+  once this ships, worth re-checking later.
+
 ## Next deployment checklist (when ready)
 
 **Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact
 files listed below.**
 
-1. Copy these 11 files from dev to `D:\SolarOps` (corrected 12 Aug
+1. Copy these 12 files from dev to `D:\SolarOps` (corrected 12 Aug
    2026 — the previous 7-file list was verified incomplete: it
    omitted 4 files including a new util that TaskDetailDrawer.tsx
    imports, which would have broken the prod build):
@@ -276,7 +316,27 @@ files listed below.**
    `src/pages/TasksPage.tsx`,
    `src/pages/TemplatePage.tsx`,
    `src/utils/needsResurvey.ts` (new file),
-   `src/utils/stageOrder.ts` (new file)
+   `src/utils/stageOrder.ts` (new file),
+   `src/hooks/useTasks.ts` (State+Date/Due-Date filter fix, commit
+   `f6437d6`)
+1b. Also deploy 2 new Firestore indexes to production (currently
+    only in dev): `tasks: archived+state+createdAt` and
+    `tasks: archived+state+dueDate`. Run
+    `firebase deploy --only firestore:indexes` from `D:\SolarOps`
+    AFTER copying files, and wait for both to show `Enabled` in the
+    Firebase Console before considering State+Date/Due-Date usable
+    in production.
+1c. `tsconfig.app.json` has one line in dev not present in prod:
+    `"ignoreDeprecations": "5.0"`. Ansh's decision, 12 Aug 2026: leave
+    as a dev-only tooling difference, no action needed — it only
+    silences a TS deprecation warning locally and doesn't affect
+    runtime behavior or the build output.
+1d. `scripts/migrateTasks.ts` and `scripts/migrateTasksNode.mjs`
+    exist only in dev — confirmed 12 Aug 2026 via direct read: both
+    are standalone one-shot backfill utilities for `priorityScore`/
+    `titleWords`, not imported anywhere in `src/`. Ansh's decision:
+    leave dev-only, no action needed — they're standalone maintenance
+    scripts, not part of the deployed app bundle.
 2. Verify clean with `npm run build` in the prod folder — NOT
    `tsc --noEmit` alone. Confirmed 12 Aug 2026: `tsc --noEmit` run at
    the project root is a no-op on this project's solution-style
