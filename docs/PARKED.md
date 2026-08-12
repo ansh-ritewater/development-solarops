@@ -139,16 +139,19 @@ if ever attempted:
   goal. Real fix, whenever picked up: add a `sales_closed` entry to
   `baseQMap` using `where('saleClosed','==',true)` directly, the
   same way every other tab's export branch already does it.
-- **Related, minor, to watch after the Sales Closed ordering fix
-  ships:** the existing `archived+saleClosed+createdAt` composite
-  index (already deployed to both dev and production as part of the
-  original Sales Closed feature) may become a newly-orphaned index
-  once the live query switches to ordering by `updatedAt` instead —
-  nothing else in the codebase queries `saleClosed` ordered by
-  `createdAt` after this fix. Not urgent — same safe-to-delete-later
-  category as the 10 already-documented prod orphans above. Worth
-  re-checking with a real index audit once the fix is confirmed
-  live in production, not before.
+- **Confirmed 12 Aug 2026: `archived+saleClosed+createdAt` is
+  genuinely orphaned, verified via a full grep of every `saleClosed`
+  query in the codebase** — every remaining query either has no
+  `orderBy` at all (the two `getCountFromServer` badge/stat counts
+  in `useTabCounts` and `DashboardPage.tsx`) or already orders by
+  `updatedAt` (both live-list queries and the Excel export branch
+  added this session). Nothing anywhere still needs this index.
+  **Ansh's decision, 12 Aug 2026: confirmed safe, deliberately NOT
+  deleting it right now — prioritizing feature/fix work over
+  cleanup.** Same safe-to-delete-later category as the 10
+  already-documented prod orphans above; can be picked up alongside
+  those in one cleanup pass whenever convenient, no urgency either
+  way since it's provably harmless to leave in place.
 
 ## Correction / Admin Override family (related bugs, not yet done)
 - Confirmed 7 Aug 2026 via direct code read: `completeJourneyStep` and

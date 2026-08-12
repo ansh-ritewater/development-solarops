@@ -297,6 +297,38 @@
   `archived+saleClosed+createdAt` index may become newly orphaned
   once this ships, worth re-checking later.
 
+**Session — 12 August 2026 (small display/export fixes):**
+- Fixed "Showing N tasks" text (`TasksPage.tsx`) to read
+  `sorted.length` instead of `tasks.length` — the number now reflects
+  what's actually visible after client-side filters (State/Lead
+  Source), not the raw server-fetched batch size. Real gap found
+  live during the Sales Closed testing session: State=Gujarat with
+  1 matching card on screen previously showed "Showing 50 tasks."
+- Added a dedicated `sales_closed` branch to `fetchAllTasksForExport`'s
+  `baseQMap`, ordered by `updatedAt` DESC to match the tab's own
+  fixed ordering — previously this export silently fell through to
+  a full-collection drain-and-filter. No new index needed; reuses
+  the `archived+saleClosed+updatedAt` index added for the Sales
+  Closed recency fix.
+- Investigated (not deleted): confirmed via full codebase grep that
+  the old `archived+saleClosed+createdAt` index is now genuinely
+  orphaned — every remaining `saleClosed` query either has no
+  `orderBy` (both stat-count badges) or already uses `updatedAt`.
+  Ansh's decision: leave it in place for now, prioritizing feature
+  work over index cleanup; safe to remove later alongside the 10
+  already-documented prod orphans. See `PARKED.md`.
+- `npm run build` clean, exit 0; full `git diff` verified line-by-line
+  against the exact spec for both edits before accepting.
+- **Confirmed 12 Aug 2026: both fully live-tested by Ansh.**
+  Showing-count fix verified across multiple Load More clicks (1
+  task → 5 tasks, number matched the visible card count exactly
+  both times) — this same test also re-confirmed the already-known,
+  already-deferred State-alone limitation is still exactly as
+  documented in `PARKED.md` (only became fully visible now because
+  the count is honest instead of masking it with a raw batch size).
+  Excel export fix confirmed: row count and order both match the
+  live tab's corrected behavior.
+
 ## Next deployment checklist (when ready)
 
 **Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact

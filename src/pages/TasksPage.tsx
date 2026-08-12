@@ -313,6 +313,7 @@ async function fetchAllTasksForExport(
     my_tasks:              ctx.currentUserUid
                              ? query(col, where('archived','==',false), where('createdBy','==',ctx.currentUserUid), orderBy('createdAt','desc'))
                              : query(col, where('archived','==',false), orderBy('createdAt','desc')),
+    sales_closed:          query(col, where('archived','==',false), where('saleClosed','==',true), orderBy('updatedAt','desc')),
   };
 
   if (filter === 'overdue') {
@@ -1400,7 +1401,7 @@ export function TasksPage() {
           {hasMore && !isLoadingTasks && (
             <div className="flex flex-col items-center gap-2 py-4">
               <p className="text-xs text-gray-400">
-                Showing {tasks.length} tasks
+                Showing {sorted.length} tasks
               </p>
               <button
                 type="button"
