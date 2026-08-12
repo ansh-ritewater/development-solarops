@@ -214,6 +214,7 @@ export function useTasks() {
     districtFilter?: string,
     dateFilter?: string,
     dueDateFilter?: string,
+    stateFilter?: string,
   ) {
     const base = collection(db, 'tasks');
 
@@ -253,6 +254,7 @@ export function useTasks() {
         q: query(
           collection(db, 'tasks'),
           where('archived',   '==', false),
+          ...(stateFilter ? [where('state', '==', stateFilter)] : []),
           where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
           where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
           orderBy('createdAt', 'desc'),
@@ -270,6 +272,7 @@ export function useTasks() {
         q: query(
           collection(db, 'tasks'),
           where('archived', '==', false),
+          ...(stateFilter ? [where('state', '==', stateFilter)] : []),
           where('dueDate',  '>=', Timestamp.fromDate(startOfDay)),
           where('dueDate',  '<=', Timestamp.fromDate(endOfDay)),
           orderBy('dueDate', 'asc'),
@@ -454,6 +457,7 @@ export function useTasks() {
     districtFilter?: string,
     dateFilter?: string,
     dueDateFilter?: string,
+    stateFilter?: string,
   ) {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'view_only') return;
 
@@ -467,7 +471,7 @@ export function useTasks() {
     setTasks([]);
     setIsLoadingTasks(true);
 
-    const built = buildAdminQuery(filter, searchTerm, engineerUid, districtFilter, dateFilter, dueDateFilter);
+    const built = buildAdminQuery(filter, searchTerm, engineerUid, districtFilter, dateFilter, dueDateFilter, stateFilter);
 
     if (built.isSearch) {
       const { taskNumQuery, titleQuery, mobileQuery } = built;
@@ -537,6 +541,7 @@ export function useTasks() {
           const moreSnap = await getDocs(query(
             collection(db, 'tasks'),
             where('archived',   '==', false),
+            ...(stateFilter ? [where('state', '==', stateFilter)] : []),
             where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
             where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
             orderBy('createdAt', 'desc'),
@@ -557,6 +562,7 @@ export function useTasks() {
           const moreSnap = await getDocs(query(
             collection(db, 'tasks'),
             where('archived', '==', false),
+            ...(stateFilter ? [where('state', '==', stateFilter)] : []),
             where('dueDate',  '>=', Timestamp.fromDate(startOfDay)),
             where('dueDate',  '<=', Timestamp.fromDate(endOfDay)),
             orderBy('dueDate', 'asc'),

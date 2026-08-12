@@ -255,7 +255,7 @@ async function fetchAllTasksForExport(
     const start = new Date(dateFilter + 'T00:00:00');
     const end   = new Date(dateFilter + 'T23:59:59.999');
     const { docs, truncated } = await drainQuery(
-      query(col, where('archived', '==', false), where('createdAt', '>=', Timestamp.fromDate(start)), where('createdAt', '<=', Timestamp.fromDate(end)), orderBy('createdAt', 'desc')),
+      query(col, where('archived', '==', false), ...(ctx.stateFilter ? [where('state', '==', ctx.stateFilter)] : []), where('createdAt', '>=', Timestamp.fromDate(start)), where('createdAt', '<=', Timestamp.fromDate(end)), orderBy('createdAt', 'desc')),
     );
     return { tasks: docs.filter((t) => taskMatchesActiveFilters(t, ctx)), truncated };
   }
@@ -265,7 +265,7 @@ async function fetchAllTasksForExport(
     const start = new Date(dueDateFilter + 'T00:00:00');
     const end   = new Date(dueDateFilter + 'T23:59:59.999');
     const { docs, truncated } = await drainQuery(
-      query(col, where('archived', '==', false), where('dueDate', '>=', Timestamp.fromDate(start)), where('dueDate', '<=', Timestamp.fromDate(end)), orderBy('dueDate', 'asc')),
+      query(col, where('archived', '==', false), ...(ctx.stateFilter ? [where('state', '==', ctx.stateFilter)] : []), where('dueDate', '>=', Timestamp.fromDate(start)), where('dueDate', '<=', Timestamp.fromDate(end)), orderBy('dueDate', 'asc')),
     );
     return { tasks: docs.filter((t) => taskMatchesActiveFilters(t, ctx)), truncated };
   }
@@ -557,7 +557,7 @@ export function TasksPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  // Admin: re-subscribe when filter, search, engineerFilter, districtFilter, dateFilter, or dueDateFilter changes.
+  // Admin: re-subscribe when filter, search, engineerFilter, districtFilter, dateFilter, dueDateFilter, or stateFilter changes.
   // Search is debounced 350ms so Firestore is not queried on every keystroke.
   useEffect(() => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'view_only') return;
@@ -571,6 +571,7 @@ export function TasksPage() {
           districtFilter  || undefined,
           dateFilter      || undefined,
           dueDateFilter   || undefined,
+          stateFilter     || undefined,
         );
       }, 350);
     } else {
@@ -581,13 +582,14 @@ export function TasksPage() {
         districtFilter  || undefined,
         dateFilter      || undefined,
         dueDateFilter   || undefined,
+        stateFilter     || undefined,
       );
     }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, currentUser?.uid, engineerFilter, districtFilter, dateFilter, dueDateFilter]);
+  }, [filter, search, currentUser?.uid, engineerFilter, districtFilter, dateFilter, dueDateFilter, stateFilter]);
   const [exporting,        setExporting]        = useState(false);
 
   const [showCreate,       setShowCreate]       = useState(false);
