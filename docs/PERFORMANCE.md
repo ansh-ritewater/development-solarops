@@ -385,7 +385,7 @@ Honest list of what this audit did *not* answer:
 | # | Action | Measured benefit | Risk |
 |---|---|---|---|
 | 1 | **Remove Google Analytics** (`gtag.js` + inline `dataLayer` snippet from `index.html`) | −147.3 KiB (23% of all JS), −631 ms mobile CPU | None. One-line deletion. No app code touched. |
-| 2 | **Remove `firebase/storage`** from `manualChunks` in `vite.config.ts` (verify no import exists first) | Shrinks the heaviest chunk; confirmed dead code | Very low |
+| 2 | **Remove `firebase/storage`** from `manualChunks` in `vite.config.ts` (verify no import exists first) | **Corrected 13 Aug 2026, measured:** confirmed dead config, but produces NO measurable bundle-size change — `firebase/storage` was never actually imported anywhere in `src/`, so Rollup was never including it regardless of the `manualChunks` listing; removing an unused chunk-assignment for a module that was already absent from the bundle is a no-op for size. Original claim ("shrinks the heaviest chunk") was wrong — corrected via a real before/after build comparison, not just theory. | Very low (harmless, just not a size win) |
 | 3 | **Add Cloudinary delivery transformations** at the 9 render sites listed above (e.g. `w_400,q_auto,f_auto` for thumbnails; full size only on explicit zoom/open) | Largest real-world mobile/field win available | Low — display-only, no writes |
 | 4 | **Wrap `TaskCard` in `React.memo` + wrap `handleCardClick` in `useCallback`** in `TasksPage.tsx` | Stops up to 200 unnecessary re-renders per `appConfig` write | Low risk, conventional React, no business logic touched |
 

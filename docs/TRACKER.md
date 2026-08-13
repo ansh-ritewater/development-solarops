@@ -489,3 +489,26 @@ Small, single-file, no index changes, no rules changes:
 3. Deploy hosting: `firebase deploy --only hosting`.
 4. Confirm live: open Template → Admin Tools on production, confirm
    both diagnostic buttons are gone.
+
+**Session — 13 August 2026 (small cleanup + 3 decisions parked):**
+- Removed the unused `firebase/storage` entry from `vendor-firebase`
+  in `vite.config.ts`'s `manualChunks` — confirmed via grep that
+  `firebase/storage`/`getStorage` has zero real usage anywhere in
+  `src/`. `npm run build` clean, exit 0.
+- **Measured, not assumed: this produced NO bundle-size change.**
+  `vendor-firebase` chunk stayed at exactly 752.35 kB before and
+  after. Corrected `PERFORMANCE.md`'s original claim that this fix
+  "shrinks the heaviest chunk" — it doesn't, because the module was
+  never actually pulled into the bundle in the first place (an
+  unimported entry in `manualChunks` is a no-op for Rollup). The
+  fix is still correct and worth keeping — it removes a stale,
+  misleading config line — just not a performance win.
+- **Three items explicitly decided NOT to do, all recorded in
+  `PARKED.md`:** Google Analytics stays (only current way to see
+  real usage/activity data, outweighs the measured 147.3 KB/631ms
+  cost); capping `remarks` — not worth the added complexity right
+  now; capping `fieldPhotos`/`documentPhotos` — explicitly rejected,
+  since any cap risks dropping a reference to a genuinely important
+  photo, which is unacceptable regardless of document-size risk.
+- Not committed yet — vite.config.ts sitting alongside PARKED.md's
+  edit, both pending the next commit.

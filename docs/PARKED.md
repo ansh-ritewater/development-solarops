@@ -307,17 +307,32 @@ under the first one
   bullet above is now CONFIRMED, not suspected — it does not call
   `backfillPipelineCounts()`, contains its own separate inline copy.
 - **Two unbounded array fields, confirmed via SCALABILITY.md's 7 Aug
-  2026 read, not previously tracked here:** the per-journey-step
-  `remarks` array (`saveJourneyStepRemark` in `usePipelineActions.ts`)
-  has no cap at all — every remark ever added to any step accumulates
-  forever, unlike `stageHistory` which is properly capped at 50.
-  Separately, `fieldPhotos`/`documentPhotos` (URL-string maps) are
-  also uncapped, though much smaller per-entry since they store
-  Cloudinary URLs, not binary data. Neither is an active production
-  concern today (no task is near Firestore's 1MB limit), but both are
-  a cheap, low-risk fix whenever picked up — mirror the existing
-  `existingHistory.slice(-49)` pattern. See `SCALABILITY.md` §5 for
-  full detail.
+  2026 read.** The per-journey-step `remarks` array
+  (`saveJourneyStepRemark` in `usePipelineActions.ts`) has no cap at
+  all — every remark ever added to any step accumulates forever,
+  unlike `stageHistory` which is properly capped at 50. Separately,
+  `fieldPhotos`/`documentPhotos` (URL-string maps) are also uncapped.
+  **Ansh's decision, 13 Aug 2026: deliberately NOT capping either.**
+  For `fieldPhotos`/`documentPhotos` specifically: any cap risks
+  dropping a reference to a genuinely important photo — unacceptable
+  given how critical field/document photos are; the risk of losing
+  access to an image outweighs the (currently low) document-size
+  risk. For `remarks`: not deemed worth the added complexity right
+  now either. Note for accuracy, not a reason to revisit the
+  decision: capping would never delete anything already stored —
+  it only affects growth going forward, the same way `stageHistory`'s
+  existing cap works — but the decision stands regardless. Neither
+  is an active production concern today (no task is near Firestore's
+  1MB limit). Revisit only if a real task ever approaches that limit.
+- **Google Analytics — deliberately NOT removed.** Confirmed real
+  cost: 147.3 KB (23% of all shipped JavaScript), 631ms of mobile
+  CPU — see `PERFORMANCE.md` ROOT CAUSE 3. **Ansh's decision, 13 Aug
+  2026: keep it — it's the only way currently in place to see real
+  usage/activity data for the app.** Not a bug, not an oversight;
+  a deliberate tradeoff between that visibility and the measured
+  performance cost. Revisit only if/when a different way to measure
+  real usage exists, or if the cost ever becomes a bigger problem
+  than the visibility is worth.
 
 ## Hygiene / hardening (low urgency, explicitly deferred)
 - Prod Firestore index cleanup — 10 orphaned indexes confirmed via a
