@@ -196,7 +196,9 @@ submittedAt, fields?, completionPhotos?), plus `queuedAt`, `attempts`,
 
 `name`, `email`, `role`, `status: pending | accepted | revoked`,
 `createdBy`, `createdAt`, `expiresAt`, `acceptedAt?`, `revokedAt?`.
-Readable unauthenticated only while `status == 'pending'` (signup flow).
+Requires authentication to read at all (tightened 13 Aug 2026 —
+previously allowed an unauthenticated read while `status == 'pending'`,
+for a signup-link flow confirmed genuinely unreachable in practice).
 
 ## Security rules — key points
 
@@ -205,7 +207,7 @@ Readable unauthenticated only while `status == 'pending'` (signup flow).
   proposal, and backend can all write** — broad, because client-side
   transactions need to update denormalized counters. No field-level
   restriction exists (confirmed) — this is a known tradeoff, not a bug.
-- **`invites`**: admin-only write; public read only for pending invites.
+- **`invites`**: admin-only write; read requires authentication unconditionally (tightened 13 Aug 2026 — previously allowed an unauthenticated read for any pending invite).
 - **`tasks`**: read/update access is role + assignment based (e.g. field
   can only touch their own assigned tasks; proposal can read any task
   currently at the proposal stage OR their own assigned ones). **Only

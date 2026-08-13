@@ -1,6 +1,6 @@
 # SolarOps — Parked Items
 
-**Last updated: 6 August 2026**
+**Last updated: 13 August 2026**
 Everything here is a known, deliberately deferred item. Nothing in
 this list should be assumed fixed unless TRACKER.md says otherwise.
 
@@ -164,34 +164,26 @@ if ever attempted:
   directly to a later stage would leave `status` stuck at its
   pre-override value.
 
-## Structural / scaling risks (ahead of the 1-lakh-task goal)
+## Structural / scaling risks (ahead of the 1-lakh-task goal),
+including 10 Aug 2026 multi-AI audit findings (cross-checked across
+7 different AI tools + direct code verification, see TRACKER.md for
+the full methodology) — merged 13 Aug 2026, these were always one
+category split across two headers with nothing actually sitting
+under the first one
 
-## Multi-AI audit findings (10 Aug 2026) — cross-checked across 7
-different AI tools + direct code verification, see TRACKER.md for
-the full methodology
-
-- **setSaleClosedManual, resetSaleClosedToAuto, clearStuckCorrectionFlag
-  only check that a user is logged in, not that they're admin.** The
-  UI hides these buttons from non-admins, but the underlying functions
-  (useTaskActions.ts) and the Firestore rules behind them don't
-  actually stop a non-admin from calling them directly. Real gap in
-  code built this same session. Not yet fixed.
-- **Confirmed real bug, escalation path confirmed 12 Aug 2026: offline
-  photo upload failures silently write raw base64 image data into
-  Firestore instead of retrying, AND this can cascade into losing an
-  entire field submission.** `TaskQueueProcessor.tsx`'s catch blocks
-  (two sites — field photos and completion photos) fall back to
-  `return url` (the original base64 string) on a Cloudinary upload
-  failure, and the item is dequeued as if successful — no retry ever
-  happens. Base64 inflates payload size ~33%; if two or three photos
-  fail this way on one submission, the resulting task document can
-  approach Firestore's 1MB hard limit. When that happens, the *next*
-  write attempt throws instead, the item retries up to `MAX_ATTEMPTS
-  = 5`, and is then dequeued with only a `console.error` — no user-
-  facing notification. Net effect: a field engineer's entire survey
-  submission for that visit can be silently and permanently lost.
-  Confirmed by direct code read, 10 Aug 2026 and 12 Aug 2026. Not yet
-  fixed.
+- **RESOLVED 13 Aug 2026** — `setSaleClosedManual`,
+  `resetSaleClosedToAuto`, `clearStuckCorrectionFlag` now all check
+  `currentUser.role !== 'admin'` and throw an explicit
+  `'Not authorized — admin only'` error (matching this file's own
+  existing throw-based convention). Code-verified via exact diff
+  match + clean build; NOT independently live-tested — see
+  `TRACKER.md`'s 13 Aug entry for the precise confirmation level.
+- **RESOLVED 13 Aug 2026** — both catch blocks now `throw` the real
+  upload error instead of silently saving raw base64, letting the
+  existing 5-attempt retry mechanism handle the failure correctly.
+  Code-verified via exact diff match + clean build; NOT independently
+  live-tested (no practical way to safely simulate a Cloudinary
+  failure) — see `TRACKER.md`'s 13 Aug entry for full detail.
 - **Confirmed: Firestore rules never check any active/disabled status
   on a user account — only role.** Every role-check function is
   `isAuth() && userRole() == '<role>'`. If a "disable user" feature
@@ -247,6 +239,17 @@ the full methodology
   Confirmed via direct code read, 10 Aug 2026.
 - Denormalized counters hand-maintained across ~13 separate code paths
   — real risk of silent drift if any path is missed in a future change.
+- **First real observation of this risk, 12/13 Aug 2026:**
+  "Recalculate Pipeline Counts" was run on live production and found
+  genuine drift — `survey: 519→517`, `dropped: 146→143`,
+  `total_active: 640→638`. Confirmed by Ansh to be pre-existing
+  accumulated drift, not caused by this session's deployment (the
+  corruption-repair tool only ever writes to a task's `status`
+  field, never to `pipelineCounts`). Confirmed and corrected via the
+  button. This is the first time this documented structural risk has
+  been observed with real numbers, not just described theoretically
+  — useful evidence for prioritizing the consolidation/counter-
+  reliability work later.
 - Reports page's hard caps (5,000 rows for charts, 500 for recent
   submissions) will truncate well before 1 lakh tasks — truncation IS
   at least flagged in the UI (unlike the old Dashboard stat-card issue,
@@ -291,6 +294,30 @@ the full methodology
   reviewed/fixed. Not urgent to fix immediately since nobody is
   clicking it, but the underlying code is unchanged and still risky —
   this is a deferred decision, not a resolved one.
+- **UPDATE 12 Aug 2026 — Admin Tools panel reduced from 7 buttons to
+  3.** Full investigation completed (see TRACKER.md's "Admin Tools
+  button audit" entry for complete detail). Removed in dev (not yet
+  deployed): "Migrate Existing Districts to Maharashtra" (one-time
+  migration, job done) and "Migrate Historical Reverted Tasks"
+  (dangerous, near-zero remaining legitimate use post-corruption-
+  fix). Remaining 3 (Recalculate Pipeline Counts, Backfill Sales
+  Closed, Recalculate Engineer & District Counts) all confirmed
+  genuinely still needed, not one-time — see TRACKER.md for why each
+  one specifically. The "Recalculate Pipeline Counts" drift-risk
+  bullet above is now CONFIRMED, not suspected — it does not call
+  `backfillPipelineCounts()`, contains its own separate inline copy.
+- **Two unbounded array fields, confirmed via SCALABILITY.md's 7 Aug
+  2026 read, not previously tracked here:** the per-journey-step
+  `remarks` array (`saveJourneyStepRemark` in `usePipelineActions.ts`)
+  has no cap at all — every remark ever added to any step accumulates
+  forever, unlike `stageHistory` which is properly capped at 50.
+  Separately, `fieldPhotos`/`documentPhotos` (URL-string maps) are
+  also uncapped, though much smaller per-entry since they store
+  Cloudinary URLs, not binary data. Neither is an active production
+  concern today (no task is near Firestore's 1MB limit), but both are
+  a cheap, low-risk fix whenever picked up — mirror the existing
+  `existingHistory.slice(-49)` pattern. See `SCALABILITY.md` §5 for
+  full detail.
 
 ## Hygiene / hardening (low urgency, explicitly deferred)
 - Prod Firestore index cleanup — 10 orphaned indexes confirmed via a
@@ -332,9 +359,10 @@ the full methodology
 - Real external error monitoring/alerting (Sentry-style) — currently
   only the in-app `/error-logs` viewer exists; nobody gets proactively
   notified of a failure.
-- An unspecified issue Ansh found in the Excel export related to Sales
-  Closed — beyond the missing-columns gap already fixed. Details not
-  yet given.
+- **RESOLVED 12 Aug 2026** — the Excel-export-related Sales Closed
+  issue was the missing dedicated query branch (fixed same session,
+  see TRACKER.md's "Sales Closed recency fix" and "small display/
+  export fixes" entries).
 - users collection is readable by every authenticated user (full name/
   email/mobile/district PII exposed to any field engineer). Real, but
   low practical urgency for an internal-team-only app. Suggestion only.

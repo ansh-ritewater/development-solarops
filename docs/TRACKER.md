@@ -1,32 +1,54 @@
 # SolarOps — Deployment & Work Tracker
 
-**Last updated: 6 August 2026**
+**Last updated: 13 August 2026**
 
 ## Current deployment status
 
-**Production (`solarops-ritesolar`) currently has, confirmed live:**
-- Error logging system (errorLogs collection + /error-logs admin viewer)
-- Full Sales Closed feature (detection, mapping panel, manual override,
-  backfill tool, dashboard card, Tasks tab)
-- Firestore automated backups (daily + weekly, 98-day retention) + PITR
-- Dashboard/Tasks-page count-mismatch fixes, clickable dashboard cards,
-  Sales Closed columns in Excel export (commit `5b57729`)
-- The Firestore index required by the above (`archived+status+pipelineStage`)
-  — confirmed present via direct gcloud check, 6 Aug 2026
+**Last verified against a full fresh reconciliation: 12 August 2026.
+Deployed to production: 12 August 2026.**
 
-**Production does NOT yet have (sitting in dev, committed, ready to deploy):**
-- Commit `43207a6` — the `adminOverrideStage` status-corruption fix,
-  the `reconcileStatusStageCorruption` repair tool, and `needsResurvey`
-  (Full-Restart-to-Survey visibility fix). Confirmed absent from
-  production via direct file-hash comparison, 6 Aug 2026.
-- No new Firestore index is required for this deployment — it's pure
-  application logic, no new query shapes.
-- Two temporary admin diagnostic buttons ("Check Status/Stage
-  Corruption", "Repair Status/Stage Corruption") currently sit in dev's
-  Template → Admin Tools, deliberately left in place, waiting to be
-  run against production once deployed — to find and repair whatever
-  real corrupted-task count exists there (dev found and repaired 13;
-  production's real count is currently unknown).
+**Production (`solarops-ritesolar`) currently has, confirmed live:**
+- Everything through `5b57729`, PLUS the full 12-file batch deployed
+  12 Aug 2026: `43207a6` (status-corruption fix + repair tool +
+  `needsResurvey`), `0916375` (PipelineTracker fix, Override warning,
+  correction-rescue button, Dashboard count-query fixes), `b8931a6`
+  (`markLeadConverted` safety net), `a7489e5` (`reEngageLead` true-
+  origin routing), `f6437d6` (State+Date/Due-Date filter), `bf2b513`
+  (Sales Closed recency), `05b17f5` (Showing-count + Sales Closed
+  export), and standalone `2d4f29e` (Application Journey photos).
+- All 3 new Firestore indexes (`archived+saleClosed+updatedAt`,
+  `archived+state+createdAt`, `archived+state+dueDate`) — deployed,
+  confirmed `Enabled`.
+- **Production's real corrupted-task count: 19**, found via "Check
+  Status/Stage Corruption" on the live site, 12 Aug 2026 — repaired,
+  re-checked, confirmed 0 remaining. (Dev's earlier equivalent count
+  was 13 — the two numbers are expected to differ since dev and prod
+  hold different real data; not a discrepancy to chase.)
+- **Smoke-tested live in production, confirmed working:** Sales
+  Closed recency ordering; State+Created-Date filter accuracy;
+  Application Journey photos rendering in the admin drawer; Sales
+  Closed Excel export. **Deliberately NOT independently smoke-tested
+  live** (Ansh's decision, 12 Aug 2026): the `adminOverrideStage`
+  corruption-fix code path itself, via a live forward/backward move
+  on a real production task — judged unnecessary given `usePipeline
+  Actions.ts` is confirmed byte-for-byte identical to dev's copy
+  (verified via `diff -rq`, zero output) and was already live-tested
+  across multiple scenarios there. This is a documented decision to
+  rely on file-identity + prior dev testing, not an independent live
+  production confirmation of that one specific code path — worth
+  knowing if this exact bug family is ever revisited.
+- "Migrate Historical Reverted Tasks" was NOT clicked at any point —
+  confirmed by Ansh. Remains parked and dangerous regardless of this
+  deployment; unrelated to it.
+
+**Production does NOT yet have:**
+- The removal of the two temporary diagnostic buttons ("🔍 Check
+  Status/Stage Corruption", "🔧 Repair Status/Stage Corruption")
+  from Template → Admin Tools — this edit is done and build-verified
+  in DEV ONLY (`src/pages/TemplatePage.tsx`), not yet copied to or
+  deployed on production. **Both buttons are still live on the
+  production site right now.** Deliberately held for a separate,
+  later deploy — Ansh's decision, 12 Aug 2026.
 
 ## Work log (chronological)
 
@@ -329,57 +351,141 @@
   Excel export fix confirmed: row count and order both match the
   live tab's corrected behavior.
 
-## Next deployment checklist (when ready)
+**Session — 12 August 2026 (production deployment):**
+- Deployed the full 12-file batch + 3 Firestore indexes +
+  `firestore.indexes.json` to `solarops-ritesolar`, following the
+  corrected checklist above. All 4 verification checks passed before
+  deploying: `diff -rq` on `src/` and on `firestore.indexes.json`
+  both zero-output; `.env.local`/`.firebaserc` confirmed untouched
+  via `git status`; `npm run build` clean, exit 0 in prod's own
+  folder; `firebase use` confirmed `solarops-ritesolar`.
+- Indexes deployed and confirmed `Enabled` before hosting deploy,
+  per the correct ordering.
+- Production's real corrupted-task count: 19, found, repaired,
+  re-confirmed 0. See "Current deployment status" above for full
+  detail and the one deliberately-deferred smoke test.
+- Immediately after (same session): removed both temporary
+  diagnostic buttons from `src/pages/TemplatePage.tsx` in DEV —
+  both handler functions, both `useState` declarations, both
+  `Button` JSX blocks, and the now-unused `reconcileStatusStage
+  Corruption` import (the function itself remains in
+  `initAppConfig.ts`, only its UI trigger removed). `npm run build`
+  clean, exit 0; `git diff --stat` confirmed only `TemplatePage.tsx`
+  changed. **NOT yet copied to or deployed on production** — see
+  "Current deployment status" above.
 
-**Note: never copy the docs/ folder to D:\SolarOps. Only copy the exact
-files listed below.**
+**Session — 12 August 2026 (Admin Tools button audit + 2 more
+removed):**
+- Full investigation of all 5 remaining Admin Tools buttons (the
+  2 diagnostic corruption buttons were already removed in an
+  earlier session) — read every handler function in full, matched
+  each to its `initAppConfig.ts` backend function (or confirmed
+  none exists), checked for other callers/auto-run paths, and pulled
+  git history for each. Full findings in `PARKED.md`.
+- **Kept, confirmed genuinely still needed:** Recalculate Pipeline
+  Counts (real ongoing purpose — catches pure numeric drift that
+  the automatic `reconcilePipelineCounts()` fallback only catches
+  for structural corruption, i.e. missing/negative/incomplete keys,
+  never for plain wrong-but-complete values); Backfill Sales Closed
+  (needed every time the Sales Closed field-mapping config changes);
+  Recalculate Engineer & District Counts (the ONLY safety net that
+  exists for drift in these hand-maintained counters — no automatic
+  equivalent anywhere).
+- **New finding, not previously documented:** `handleRecalculate
+  PipelineCounts` does NOT call `backfillPipelineCounts()` — it
+  contains its own separate inline computation. Confirmed via direct
+  code comparison. Real, live drift risk (two independently-
+  maintained implementations of the same logic), not hypothetical.
+  Not fixed this session — kept as-is, logged for a future
+  consolidation.
+- **Removed: 🗺️ Migrate Existing Districts to Maharashtra.**
+  Confirmed via the button's own code/confirm-dialog text to be a
+  one-time single-state→multi-state schema migration — all tasks
+  and users created going forward already get `state` set at
+  creation. No legitimate future need identified. Separate finding
+  while reading it closely: its own confirm dialog claimed re-
+  running it was "safe, no duplicates due to case-insensitive
+  matching" — the actual code used a plain JS `Set`, which does
+  exact-string matching, not case-insensitive. The button's safety
+  claim to the admin was inaccurate; moot now that it's removed.
+- **Removed: ↩ Migrate Historical Reverted Tasks.** Already known-
+  dangerous from an earlier session (see `PARKED.md`'s existing
+  entry) — this removal confirms the reasoning more precisely after
+  reading the full function: it correctly excludes already-tracked
+  tasks, tasks that have moved on, and Full Restarts that kept their
+  exact default note — but a deliberate Full Restart done with a
+  CUSTOM note remains indistinguishable from an accidental revert,
+  and would get wrongly tagged with correction tracking AND have
+  `status` forced back to `'pending'` even though `'completed'` is
+  the correct state for that scenario post-corruption-fix. Its
+  legitimate matching set (tasks corrupted before correction-
+  tracking existed) was always historical and fixed in size; now
+  that the root corruption bug is fixed, no new tasks should ever
+  match it going forward — usefulness near zero, risk fully intact.
+- Also fixed: a dangling empty-state UI message in the States &
+  Districts section that referenced the now-removed Maharashtra
+  button by name — reworded to point at the actual "Add State"
+  field instead.
+- `npm run build` clean, exit 0 at every step; every diff verified
+  line-by-line against the exact spec before accepting, matching
+  this session's standard rigor throughout.
+- **NOT deployed to production yet — Ansh's decision, 12 Aug 2026:
+  holding this change in dev, to be bundled with other pending fixes
+  into one future deployment rather than shipped alone.** Production
+  still shows all 7 original Admin Tools buttons as of this writing
+  (the 2 diagnostic buttons' removal is also still pending its own
+  production deploy from an earlier session).
 
-1. Copy these 12 files from dev to `D:\SolarOps` (corrected 12 Aug
-   2026 — the previous 7-file list was verified incomplete: it
-   omitted 4 files including a new util that TaskDetailDrawer.tsx
-   imports, which would have broken the prod build):
-   `src/components/offline/TaskQueueProcessor.tsx`,
-   `src/components/pipeline/PipelineTracker.tsx`,
-   `src/components/tasks/TaskDetailDrawer.tsx`,
-   `src/firebase/initAppConfig.ts`,
-   `src/hooks/usePipelineActions.ts`,
-   `src/hooks/useTaskActions.ts`,
-   `src/pages/DashboardPage.tsx`,
-   `src/pages/TasksPage.tsx`,
-   `src/pages/TemplatePage.tsx`,
-   `src/utils/needsResurvey.ts` (new file),
-   `src/utils/stageOrder.ts` (new file),
-   `src/hooks/useTasks.ts` (State+Date/Due-Date filter fix, commit
-   `f6437d6`)
-1b. Also deploy 2 new Firestore indexes to production (currently
-    only in dev): `tasks: archived+state+createdAt` and
-    `tasks: archived+state+dueDate`. Run
-    `firebase deploy --only firestore:indexes` from `D:\SolarOps`
-    AFTER copying files, and wait for both to show `Enabled` in the
-    Firebase Console before considering State+Date/Due-Date usable
-    in production.
-1c. `tsconfig.app.json` has one line in dev not present in prod:
-    `"ignoreDeprecations": "5.0"`. Ansh's decision, 12 Aug 2026: leave
-    as a dev-only tooling difference, no action needed — it only
-    silences a TS deprecation warning locally and doesn't affect
-    runtime behavior or the build output.
-1d. `scripts/migrateTasks.ts` and `scripts/migrateTasksNode.mjs`
-    exist only in dev — confirmed 12 Aug 2026 via direct read: both
-    are standalone one-shot backfill utilities for `priorityScore`/
-    `titleWords`, not imported anywhere in `src/`. Ansh's decision:
-    leave dev-only, no action needed — they're standalone maintenance
-    scripts, not part of the deployed app bundle.
-2. Verify clean with `npm run build` in the prod folder — NOT
-   `tsc --noEmit` alone. Confirmed 12 Aug 2026: `tsc --noEmit` run at
-   the project root is a no-op on this project's solution-style
-   tsconfig.json (it resolves zero input files and always exits 0,
-   even against a deliberately broken tree). `npm run build` (which
-   runs `tsc -b && vite build`) is the only command that actually
-   type-checks the code — use that for every future verification.
-3. Deploy hosting (no rules or index changes needed for this one)
-4. Click "Check Status/Stage Corruption" on production — record the
-   real count
-5. Decide whether/when to click "Repair Status/Stage Corruption" on
-   production
-6. Once confident, remove both temporary diagnostic buttons from prod
-   (and eventually dev)
+**Session — 13 August 2026 (3 small fixes — code-verified, not
+independently live-tested):**
+- **Offline photo base64 fallback removed** (`TaskQueueProcessor.tsx`,
+  2 sites — field photos and completion photos): both now `throw`
+  the real upload error instead of silently saving raw base64 into
+  Firestore, letting the existing 5-attempt retry mechanism handle
+  the failure the way it already does for every other error in this
+  file. The completion-photos site also gained the `console.error`/
+  `logError` calls it was previously missing entirely.
+- **3 functions in `useTaskActions.ts` now check `role === 'admin'`,
+  not just login:** `setSaleClosedManual`, `resetSaleClosedToAuto`,
+  `clearStuckCorrectionFlag` (the last of which had NO auth check at
+  all before this). All three now throw an explicit
+  `'Not authorized — admin only'` error, matching this file's own
+  existing throw-based convention for the not-logged-in case.
+- **`firestore.rules`: `invites` collection's read rule tightened**
+  to require authentication unconditionally — removed the clause
+  allowing an unauthenticated read for any `status: 'pending'`
+  invite. Confirmed beforehand via a full, separate investigation
+  that this collection is genuinely disconnected from the real
+  "Create User" onboarding flow (which uses Firebase Auth's own
+  `sendPasswordResetEmail` directly, never touches `invites`) — so
+  this change cannot affect real user onboarding.
+- All 3 diffs verified line-by-line against the exact intended spec
+  before accepting; `npm run build` clean, exit 0, at every step;
+  `git diff --stat` confirmed only the 3 intended files changed.
+- **Confirmation level, stated precisely rather than overclaimed:**
+  code-verified (exact diff match + clean build + straightforward,
+  well-understood logic), but NOT independently live-tested — Ansh's
+  call, 13 Aug 2026, given no practical way to safely simulate a
+  Cloudinary failure or a non-admin bypass attempt without
+  deliberately manufacturing conditions for a test. This is a
+  different confidence level than this session's other entries,
+  which were all confirmed via an actual live click — noted here
+  explicitly so this record stays honest about what was and wasn't
+  verified.
+- **NOT deployed to production** — queued with everything else
+  currently sitting in dev-only, for the next batched deployment.
+
+## Completed deployment — 12 August 2026
+
+The 12-file + 3-index deployment described above is done. This
+section is kept for historical reference only — do not re-run it.
+
+## Next deployment checklist (when ready) — button removal only
+
+Small, single-file, no index changes, no rules changes:
+
+1. Copy `src/pages/TemplatePage.tsx` from dev to `D:\SolarOps`.
+2. Verify clean with `npm run build` in the prod folder.
+3. Deploy hosting: `firebase deploy --only hosting`.
+4. Confirm live: open Template → Admin Tools on production, confirm
+   both diagnostic buttons are gone.

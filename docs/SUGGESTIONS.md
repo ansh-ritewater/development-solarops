@@ -1,6 +1,6 @@
 # SolarOps — Suggestions & Minor Findings
 
-**Last updated: 10 August 2026**
+**Last updated: 13 August 2026**
 This file holds items that are real and worth knowing, but do NOT
 currently harm the system and are NOT actively planned work — unlike
 `PARKED.md`, which is for things genuinely intended to be fixed
@@ -42,13 +42,16 @@ a design change that touches it, a team change), move it to
   trims any overgrown array back to 50 — so it's a documentation-
   accuracy issue, not an active bug. `SCHEMA.md`/`PIPELINE_FLOW.md`/
   `SCALABILITY.md` overstate the cap as universal; corrected there.
-- **Two unauthenticated/under-protected surfaces in `firestore.rules`,
-  confirmed 12 Aug 2026, not previously documented:** `errorLogs`
-  allows `create: if isAuth()` — any authenticated user, any role,
-  can write unlimited arbitrary log documents, with no rate limiting
-  or App Check behind it. Separately, `invites` allows `read: if
-  isAuth() || resource.data.status == 'pending'` — an unauthenticated
-  party can read any still-pending invite, exposing name/email/role.
-  Low practical risk: the invite-link system is already confirmed
-  genuinely orphaned elsewhere in `PARKED.md` (`createInvite` has no
-  caller anywhere in the UI).
+- **`errorLogs` still allows `create: if isAuth()`** — any
+  authenticated user, any role, can write unlimited arbitrary log
+  documents, with no rate limiting or App Check behind it. Confirmed
+  12 Aug 2026, still open — the real fix needs infrastructure this
+  app deliberately doesn't have (Cloud Functions/App Check).
+- **RESOLVED 13 Aug 2026** — `invites`' read rule was tightened to
+  require authentication unconditionally (`allow read: if isAuth();`),
+  removing the clause that allowed an unauthenticated read for any
+  `status: 'pending'` invite. Confirmed beforehand, via a full
+  separate investigation, that the real "Create User" onboarding flow
+  never touches this collection at all (it uses Firebase Auth's own
+  `sendPasswordResetEmail` directly) — so this change cannot affect
+  real user onboarding. See `TRACKER.md`'s 13 Aug entry.

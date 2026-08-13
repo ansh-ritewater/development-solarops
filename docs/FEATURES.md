@@ -1,6 +1,6 @@
 # SolarOps — Feature Catalog
 
-**Last updated: 6 August 2026**
+**Last updated: 13 August 2026**
 **Note: this catalog reflects features discussed/built/verified in
 recent sessions. It is not yet a complete inventory of the entire
 application — see ARCHITECTURE.md (once built) for full coverage.**
@@ -568,43 +568,49 @@ writes it — it's vestigial, entirely superseded by the Cash/Loan
 Application Journey step lists. Same category of finding as the
 `BackendStageData` legacy-fields note above.
 
-### Admin Tools — every button actually wired up in the UI, and what it really calls
+### Admin Tools — every button actually wired up in the UI, and what
+it really calls
 
-Only **7 buttons** exist in this section (see the flag below the list —
-`initAppConfig.ts` has 17 exported functions total, most of which have
-**no button here at all**):
+**Reduced from 7 buttons to 3, 12 Aug 2026** (full investigation in
+`TRACKER.md`'s "Admin Tools button audit" entry) — the 4 removed
+buttons are listed below for historical reference, followed by the
+3 that remain and are confirmed still genuinely needed:
 
+**Remaining 3:**
 1. **🔧 Recalculate Pipeline Counts** — recomputes every stage count
    client-side, shows the admin a diff in a confirm dialog before
-   writing anything. Note: this does **not** call
-   `backfillPipelineCounts()` from `initAppConfig.ts` — it duplicates
-   that same logic inline in the page itself, so the two implementations
-   could in principle drift apart over time.
+   writing anything. Confirmed real ongoing purpose: catches pure
+   numeric drift that the automatic `reconcilePipelineCounts()`
+   fallback only catches for structural corruption (missing/
+   negative/incomplete keys), never for plain wrong-but-complete
+   values. **Confirmed drift-risk, not just suspected:** this does
+   NOT call `backfillPipelineCounts()` from `initAppConfig.ts` — it
+   duplicates that same logic inline in the page itself, so the two
+   implementations could drift apart over time.
 2. **🔧 Backfill Sales Closed** → `reconcileSaleClosed()` — recomputes
-   Sales Closed for every non-manually-set task, batch-fixes any that
-   are wrong.
-3. **🔍 Check Status/Stage Corruption** — read-only diagnostic, finds
-   tasks stuck `status: 'pending'` despite having moved past Survey;
-   explicitly commented in the code as **"TEMPORARY DIAGNOSTIC — remove
-   after use"** (per `TRACKER.md`, deliberately left in place for now).
-4. **🔧 Repair Status/Stage Corruption** → `reconcileStatusStageCorruption()`
-   — the write-side fix for the same corruption pattern (forces
-   `status: 'completed'` on every match).
-5. **📊 Recalculate Engineer & District Counts** → `backfillEngineerDistrictCounts()`
-   — full rebuild of the `engineerCounts`/`districtCounts` denormalized
-   maps from a live task scan.
-6. **🗺️ Migrate Existing Districts to Maharashtra** — one-time,
-   page-local migration: folds the old flat `districts` list under a
-   `"Maharashtra"` key in `districtsByState`, and backfills `state:
-   'Maharashtra'` onto every task/user that has a district but no state.
-7. **↩ Migrate Historical Reverted Tasks** — one-time, page-local
-   migration: scans `stageHistory` for admin overrides that moved a
-   task *backward* and are still sitting at that reverted stage without
-   a `correctionReturnTo`, and retroactively writes the correction
-   fields onto them (deliberately excluding overrides whose note matches
-   the default auto-generated "Full Restart" text, since those were an
-   intentional non-tracked move) — also resets `status: 'completed'`
-   tasks caught in this set back to `'pending'`.
+   Sales Closed for every non-manually-set task. Genuinely ongoing,
+   not one-time: needed every time the admin changes the Sales
+   Closed field-mapping panel.
+3. **📊 Recalculate Engineer & District Counts** → `backfillEngineerDistrictCounts()`
+   — full rebuild of the `engineerCounts`/`districtCounts` maps.
+   The ONLY safety net that exists for drift in these hand-
+   maintained counters — no automatic equivalent anywhere.
+
+**Removed 12 Aug 2026, both confirmed via direct code read:**
+- **🔍 Check Status/Stage Corruption** and **🔧 Repair Status/Stage
+  Corruption** — temporary diagnostic buttons, removed after
+  production's real corrupted-task count (19) was found and repaired.
+- **🗺️ Migrate Existing Districts to Maharashtra** — confirmed a
+  one-time single-state→multi-state schema migration, job done, no
+  legitimate future need (all new records get `state` set at
+  creation already).
+- **↩ Migrate Historical Reverted Tasks** — confirmed dangerous: a
+  deliberate Full Restart done with a custom note is indistinguishable
+  from an accidental revert to this function, and would get wrongly
+  tagged with correction tracking. Its legitimate matching set (tasks
+  corrupted before correction-tracking existed) was always historical
+  and fixed in size — near-zero remaining legitimate use now that the
+  root corruption bug is fixed.
 
 **⚠️ Flag — most of `initAppConfig.ts`'s functions have no admin-tools
 button at all.** Confirmed by reading the whole file: `initAppConfig`,
@@ -612,19 +618,11 @@ button at all.** Confirmed by reading the whole file: `initAppConfig`,
 `initBackendJourneySteps`, `backfillJourneyCompleted`,
 `migrateLogisticsToBackend`, `backfillTitleLower`, `backfillMemberCounts`,
 `initMemberInCounts`, `reconcilePipelineCounts`, `backfillCreatedBy`, and
-`ensureSuperAdmin` are all real, exported, presumably-still-callable
-functions with **zero UI entry point found in `TemplatePage.tsx`**.
-Some of these look like they're meant to run automatically at app
-startup or user-creation time (`initMemberInCounts` is confirmed called
-from `useUserActions.createUser`; `initAppConfig`/`ensureSuperAdmin`/
-`reconcilePipelineCounts` read like boot-time self-healing checks) —
-but this wasn't verified by reading `App.tsx`'s or `useAuth.ts`'s
-startup sequence in this pass, so treat "these run automatically" as a
-plausible explanation, not a confirmed one. Either way, `PARKED.md`'s
-framing of "14+2 admin backfill/migration tools" as a single risk
-category is worth revisiting with this more precise count (17 exported
-functions, only 7 of them admin-clickable) next time that file is
-touched.
+`ensureSuperAdmin` are all real, exported functions with zero UI entry
+point in `TemplatePage.tsx`. **Confirmed since this was first flagged:**
+`DashboardPage.tsx` runs 10 of these automatically on every admin page
+load (see this file's own Dashboard section below) — only
+`backfillTitleLower` remains a genuine unaccounted-for orphan.
 
 ## Reports page (`ReportsPage.tsx`)
 
@@ -691,14 +689,15 @@ system that also genuinely exists in the code:
   the **invite ID** (not an admin uid), and marks the invite
   `'accepted'`.
 - `revokeInvite(inviteId)` exists to cancel a pending invite.
-- **What's unclear**: whether this invite-link path is actually exposed
-  anywhere in the current admin UI. The `TeamPage.tsx` read earlier this
-  session found only the "Create User" (secondary-app + reset-email)
-  flow — no "Send Invite Link" button or equivalent was found there.
-  It's possible this system is wired up somewhere not yet read, or that
-  it's a genuinely separate/legacy mechanism no longer surfaced to
-  admins at all. Worth resolving before relying on either description
-  as "the" invite flow.
+- **RESOLVED 13 Aug 2026, via a dedicated 4-part read-only audit:**
+  this invite-link path is confirmed genuinely unreachable through
+  normal use. `createInvite` (the only thing that would ever produce
+  a real, usable invite ID) has zero callers anywhere in `src/` — not
+  a button, not a page, nothing. The `/signup/:inviteId` route exists
+  and is registered, but since nothing ever creates a real invite to
+  link to, no real user could ever legitimately land there. The
+  "Create User" flow described above is genuinely the only real
+  account-creation path in active use.
 
 **`useAuth.ts`** populates the global `AppUser` (via `useAuthStore`) on
 every auth-state change: force-refreshes the ID token, prefers a `role`
@@ -760,9 +759,11 @@ actually drains the queue:
   item's failure increments its `attempts`/`lastError` and moves on to
   the next item rather than aborting the whole batch.
 - Each item does substantially more than a single Firestore write:
-  re-uploads any still-base64 field photos to Cloudinary (per-photo
-  failures are individually tolerated, keeping the original data as a
-  fallback), enforces the same 10MB/20MB image/PDF size caps used
+  re-uploads any still-base64 field photos to Cloudinary — **fixed
+  13 Aug 2026: a photo-upload failure now throws and is retried by the
+  existing 5-attempt mechanism, instead of silently saving raw base64
+  data as a fallback (the old behavior this line used to describe)** —
+  enforces the same 10MB/20MB image/PDF size caps used
   elsewhere on completion photos (oversized ones are dropped with a
   toast), recomputes Sales Closed evidence (never overwriting a manual
   override — same rule as everywhere else), writes the main task
@@ -772,12 +773,6 @@ actually drains the queue:
   survey→proposal pipeline transition in its own transaction, wrapped
   separately so a transition failure never undoes the main data save
   that already succeeded.
-
-**⚠️ Flag — a real UI-text/logic mismatch found in this file**: the
-toast shown when a completion photo is dropped for being too large says
-**"Max size: 15MB"**, but the actual enforced caps in this same function
-are 10MB for images and 20MB for PDFs — neither of which is 15MB. The
-message doesn't match the code's own limit.
 
 ## Thin/wrapper hooks — briefly, since there's nothing more to say
 
