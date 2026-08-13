@@ -29,11 +29,7 @@ service cloud.firestore {
     }
 
     match /invites/{inviteId} {
-      // Read allowed unauthenticated (signup flow)
-      // OR authenticated (admin management)
-      // but only pending invites for unauthenticated
-      allow read:  if isAuth()
-                   || resource.data.status == 'pending';
+      allow read:  if isAuth();
       allow write: if isAdmin();
     }
 

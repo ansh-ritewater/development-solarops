@@ -67,7 +67,8 @@ async function uploadFieldPhotos(
         } catch (err) {
           console.error(`[Queue] Photo upload failed for field ${fieldId} index ${i}:`, err);
           void logError('offlineQueue.photoUploadFailed', err, { fieldId, index: i });
-          return url; // keep original URL on failure
+          throw err; // let the existing 5-attempt retry mechanism handle this,
+                      // instead of silently saving raw base64 into Firestore
         }
       })
     );
@@ -147,8 +148,10 @@ export function TaskQueueProcessor() {
             }
           }
           return await uploadIfBase64(url, item.taskNum, 'completion', i, undefined, engineerCode, engineerName);
-        } catch {
-          return url;
+        } catch (err) {
+          console.error(`[Queue] Completion photo upload failed for task ${item.taskId} index ${i}:`, err);
+          void logError('offlineQueue.completionPhotoUploadFailed', err, { taskId: item.taskId, index: i });
+          throw err; // let the existing 5-attempt retry mechanism handle this
         }
       })
     );

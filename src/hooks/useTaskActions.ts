@@ -528,6 +528,7 @@ export function useTaskActions() {
 
   async function setSaleClosedManual(taskId: string, value: boolean): Promise<void> {
     if (!currentUser) throw new Error('Not authenticated');
+    if (currentUser.role !== 'admin') throw new Error('Not authorized — admin only');
     try {
       await updateDoc(doc(db, 'tasks', taskId), {
         saleClosed:       value,
@@ -545,6 +546,7 @@ export function useTaskActions() {
 
   async function resetSaleClosedToAuto(taskId: string): Promise<void> {
     if (!currentUser) throw new Error('Not authenticated');
+    if (currentUser.role !== 'admin') throw new Error('Not authorized — admin only');
     try {
       const taskRef = doc(db, 'tasks', taskId);
       const [taskSnap, cfgSnap] = await Promise.all([
@@ -579,6 +581,8 @@ export function useTaskActions() {
   }
 
   async function clearStuckCorrectionFlag(taskId: string): Promise<void> {
+    if (!currentUser) throw new Error('Not authenticated');
+    if (currentUser.role !== 'admin') throw new Error('Not authorized — admin only');
     try {
       await updateDoc(doc(db, 'tasks', taskId), {
         correctionReturnTo:             null,
