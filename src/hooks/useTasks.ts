@@ -215,6 +215,7 @@ export function useTasks() {
     dateFilter?: string,
     dueDateFilter?: string,
     stateFilter?: string,
+    leadSourceFilter?: string,
   ) {
     const base = collection(db, 'tasks');
 
@@ -255,6 +256,7 @@ export function useTasks() {
           collection(db, 'tasks'),
           where('archived',   '==', false),
           ...(stateFilter ? [where('state', '==', stateFilter)] : []),
+          ...(leadSourceFilter ? [where('leadSource', '==', leadSourceFilter)] : []),
           where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
           where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
           orderBy('createdAt', 'desc'),
@@ -273,6 +275,7 @@ export function useTasks() {
           collection(db, 'tasks'),
           where('archived', '==', false),
           ...(stateFilter ? [where('state', '==', stateFilter)] : []),
+          ...(leadSourceFilter ? [where('leadSource', '==', leadSourceFilter)] : []),
           where('dueDate',  '>=', Timestamp.fromDate(startOfDay)),
           where('dueDate',  '<=', Timestamp.fromDate(endOfDay)),
           orderBy('dueDate', 'asc'),
@@ -462,6 +465,7 @@ export function useTasks() {
     dateFilter?: string,
     dueDateFilter?: string,
     stateFilter?: string,
+    leadSourceFilter?: string,
   ) {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'view_only') return;
 
@@ -475,7 +479,7 @@ export function useTasks() {
     setTasks([]);
     setIsLoadingTasks(true);
 
-    const built = buildAdminQuery(filter, searchTerm, engineerUid, districtFilter, dateFilter, dueDateFilter, stateFilter);
+    const built = buildAdminQuery(filter, searchTerm, engineerUid, districtFilter, dateFilter, dueDateFilter, stateFilter, leadSourceFilter);
 
     if (built.isSearch) {
       const { taskNumQuery, titleQuery, mobileQuery } = built;
@@ -546,6 +550,7 @@ export function useTasks() {
             collection(db, 'tasks'),
             where('archived',   '==', false),
             ...(stateFilter ? [where('state', '==', stateFilter)] : []),
+            ...(leadSourceFilter ? [where('leadSource', '==', leadSourceFilter)] : []),
             where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
             where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
             orderBy('createdAt', 'desc'),
@@ -567,6 +572,7 @@ export function useTasks() {
             collection(db, 'tasks'),
             where('archived', '==', false),
             ...(stateFilter ? [where('state', '==', stateFilter)] : []),
+            ...(leadSourceFilter ? [where('leadSource', '==', leadSourceFilter)] : []),
             where('dueDate',  '>=', Timestamp.fromDate(startOfDay)),
             where('dueDate',  '<=', Timestamp.fromDate(endOfDay)),
             orderBy('dueDate', 'asc'),

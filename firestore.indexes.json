@@ -474,6 +474,24 @@
         { "fieldPath": "state",      "order": "ASCENDING"  },
         { "fieldPath": "dueDate",    "order": "ASCENDING"  }
       ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "archived",    "order": "ASCENDING"  },
+        { "fieldPath": "leadSource",  "order": "ASCENDING"  },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "archived",    "order": "ASCENDING"  },
+        { "fieldPath": "leadSource",  "order": "ASCENDING"  },
+        { "fieldPath": "dueDate",     "order": "ASCENDING"  }
+      ]
     }
   ],
   "fieldOverrides": []
