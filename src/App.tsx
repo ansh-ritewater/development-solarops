@@ -39,10 +39,11 @@ interface ProtectedRouteProps {
   requireAdmin?:       boolean;
   requireRole?:        string;
   requireAdminOrField?: boolean;
+  adminOnly?:          boolean;
   children:            React.ReactNode;
 }
 
-function ProtectedRoute({ requireAdmin = false, requireRole, requireAdminOrField = false, children }: ProtectedRouteProps) {
+function ProtectedRoute({ requireAdmin = false, requireRole, requireAdminOrField = false, adminOnly = false, children }: ProtectedRouteProps) {
   const { currentUser, loading } = useAuthStore();
 
   if (loading) {
@@ -55,6 +56,7 @@ function ProtectedRoute({ requireAdmin = false, requireRole, requireAdminOrField
 
   if (!currentUser) return <Navigate to="/login" replace />;
   if (requireAdmin && currentUser.role !== 'admin' && currentUser.role !== 'view_only') return <Navigate to="/dashboard" replace />;
+  if (adminOnly && currentUser.role !== 'admin') return <Navigate to="/dashboard" replace />;
   if (requireRole && currentUser.role !== requireRole && currentUser.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
@@ -125,7 +127,7 @@ export default function App() {
             <Route path="/team"     element={<ProtectedRoute requireAdmin><TeamPage /></ProtectedRoute>} />
             <Route path="/template" element={<ProtectedRoute requireAdmin><TemplatePage /></ProtectedRoute>} />
             <Route path="/reports"     element={<ProtectedRoute requireAdmin><ReportsPage /></ProtectedRoute>} />
-            <Route path="/error-logs"  element={<ProtectedRoute requireAdmin><ErrorLogsPage /></ProtectedRoute>} />
+            <Route path="/error-logs"  element={<ProtectedRoute adminOnly><ErrorLogsPage /></ProtectedRoute>} />
           </Route>
 
           <Route path="*" element={<CatchAll />} />
