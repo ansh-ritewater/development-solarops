@@ -170,10 +170,11 @@ to 109.93 KB (~80% reduction), confirmed via real build output. Full
 detail in `PARKED.md` and `TRACKER.md`'s 14 Aug entry. The bundle
 size figures immediately below this note reflect the PRE-fix state
 (7 Aug 2026 measurement) — kept for historical reference, not
-current reality. A fresh
-`npm run build` run during this session confirms the real production
-bundle sizes (these are the actual current build outputs, not
-estimates):
+current reality. The original 7 Aug 2026
+`npm run build` run confirmed these bundle sizes AT THAT TIME (now
+superseded by the 14 Aug 2026 code-splitting fix above — kept below
+purely for historical before/after comparison, not as current
+numbers):
 
 ```
 vendor-ui-*.js        121.68 kB (gzip  37.78 kB)
