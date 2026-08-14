@@ -4,7 +4,8 @@ service cloud.firestore {
 
     function isAuth()  { return request.auth != null; }
     function userRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return u.active == false ? null : u.role;
     }
     function isAdmin()        { return isAuth() && userRole() == 'admin'; }
     function isField()        { return isAuth() && userRole() == 'field'; }
