@@ -22,11 +22,15 @@ service cloud.firestore {
     }
 
     match /appConfig/{docId} {
-      allow read:  if isAuth();
-      allow write: if isAdmin()
-                   || isField()
-                   || isProposal()
-                   || isBackend();
+      allow read:   if isAuth();
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if isAdmin()
+                    || (
+                      (isField() || isProposal() || isBackend())
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['pipelineCounts', 'memberCounts', 'engineerCounts', 'districtCounts'])
+                    );
     }
 
     match /invites/{inviteId} {
