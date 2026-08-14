@@ -1199,6 +1199,18 @@ export function usePipelineActions() {
 
         if (newStage === 'completed' && currentStatus !== 'completed') {
           taskFieldUpdates['status'] = 'completed';
+        } else if (
+          currentStage === 'survey' &&
+          newStage !== 'survey' &&
+          newStage !== 'dropped' &&
+          currentStatus !== 'completed'
+        ) {
+          // A task force-moved directly out of Survey (still pending/
+          // in_progress/blocked) would otherwise leave `status` frozen at
+          // its pre-override value forever, since no later transition
+          // function ever revisits it. Treat this override itself as the
+          // survey completion event.
+          taskFieldUpdates['status'] = 'completed';
         }
 
         if (isCorrection) {
