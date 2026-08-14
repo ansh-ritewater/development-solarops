@@ -521,11 +521,18 @@ Small, single-file, no index changes, no rules changes:
   `useTasks.ts`, and into `fetchAllTasksForExport`'s Date/Due-Date
   branches in `TasksPage.tsx`; added to the re-subscribe dependency
   array. 2 new indexes added to `firestore.indexes.json`
-  (`archived+leadSource+createdAt`, `archived+leadSource+dueDate`).
-  `npm run build` clean; full `git diff` verified line-by-line
-  against spec. **NOT yet deployed to dev or tested live** — indexes
-  not yet deployed, no live click-test done yet for this one
-  specifically.
+  (`archived+leadSource+createdAt`, `archived+leadSource+dueDate`),
+  deployed to `development-solarops` and confirmed `Enabled`.
+  **Confirmed 13 Aug 2026: live-tested by Ansh** — Lead Source +
+  Created-Date and Lead Source + Due-Date both verified accurate;
+  "Load More" with either combination active specifically checked
+  and confirmed correctly narrowed (not a wider unfiltered batch) —
+  the same failure pattern this project has been bitten by before;
+  Engineer and District filters confirmed unaffected. Lead Source
+  alone (no date filter) confirmed unchanged from its prior known
+  limitation — not a regression, that scope remains deferred exactly
+  as documented. **Fully resolved for this narrow scope**, matching
+  State's fix exactly.
 - **Disabled-user Firestore rule gap fixed.** See `PARKED.md` for
   full detail on the fix and its live test — genuinely confirmed
   working via a real two-tab test (an already-open session for a
@@ -540,3 +547,58 @@ Small, single-file, no index changes, no rules changes:
   confirmed still exactly as documented, no independent fix
   available separate from the full State/Lead-Source scope work
   already deferred.
+
+**Session — 13 August 2026 (3 quick fixes from the 6-item follow-up
+review):**
+- **`view_only` blocked from `/error-logs` specifically** — added a
+  new, stricter `adminOnly` route flag (distinct from the existing
+  `requireAdmin`, which correctly still includes `view_only` for
+  Team/Template/Reports). Only the `/error-logs` route changed.
+  Confirmed beforehand: `view_only` already had zero write access
+  anywhere across Team/Template/Reports/Error-Logs — this was purely
+  a route-vs-rules mismatch (route let them in, the rules blocked
+  real data), not a data-security gap. **Live-tested by Ansh:**
+  `view_only` now redirects cleanly instead of hitting a broken
+  page; Team/Template/Reports confirmed unaffected; admin access to
+  Error Logs confirmed unaffected.
+- **Survey-stage direct-override `status` gap fixed** — added one
+  new condition to `adminOverrideStage`: force-moving a task
+  directly out of Survey (skipping the normal submit flow, while
+  still `pending`/`in_progress`/`blocked`) now sets `status` to
+  `completed` as part of that same override, instead of leaving it
+  frozen forever with nothing to ever revisit it. **Live-tested by
+  Ansh:** confirmed on a real Survey-stage task force-moved to a
+  later stage — `status` correctly updated; confirmed a normal
+  override (task already past Survey) is unaffected.
+- **Offline queue identity binding fixed** — `QueuedTaskUpdate` now
+  carries `createdByUid`, stamped at both real call sites
+  (`useTaskSubmit.ts`, `UpdateTaskDrawer.tsx`); `TaskQueueProcessor.tsx`
+  skips syncing any item stamped for a different uid than whoever's
+  currently logged in; `Header.tsx`'s logout now clears queued items
+  belonging to the logging-out user specifically (plus any legacy
+  pre-fix items with no stamp at all) — refined from an initial
+  clear-everything version to this scoped version, since it's
+  strictly more careful at zero extra cost, even though Ansh
+  confirmed devices aren't shared in practice so the two versions
+  are behaviorally identical for real usage. **Live-tested by
+  Ansh:** the actual cross-session scenario (person A queues offline,
+  logs out, person B logs in same device) confirmed working before
+  the scoped refinement; the refinement itself verified by direct
+  code review rather than a repeat test, since it introduces no new
+  mechanism — only a plain, simple filter condition over the same
+  already-proven clear/skip logic.
+- `initMemberInCounts` "double-counting" concern — investigated,
+  NOT a real bug: only one call site exists in the whole codebase,
+  and the function is already idempotent per-uid by design. Cleared,
+  not fixed.
+- Stored XSS risk — confirmed REAL via this session's audit (every
+  photo/document render site checked renders raw stored URLs with
+  zero scheme check), but deliberately NOT fixed this session — sized
+  as its own separate piece of work (a shared safety-check helper
+  across ~9 render sites), not a quick fix. Remains open, see
+  `PARKED.md`.
+- `npm run build` clean at every step; every diff verified
+  line-by-line against spec before accepting, matching this
+  session's standard rigor throughout.
+- **NOT deployed to production** — queued with everything else
+  currently sitting in dev-only.
