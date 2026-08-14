@@ -5,6 +5,7 @@ import { ref, set, serverTimestamp } from 'firebase/database';
 import { auth, rtdb }  from '@/firebase/config';
 import { useAuthStore } from '@/store/authStore';
 import { useTaskStore } from '@/store/taskStore';
+import { getAllQueued, dequeueTaskUpdate } from '@/hooks/useTaskOfflineQueue';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -27,6 +28,12 @@ export function Header() {
         role:     currentUser?.role ?? '',
       });
     }
+    const queued = await getAllQueued();
+    await Promise.all(
+      queued
+        .filter((item) => item.id && (!item.createdByUid || item.createdByUid === uid))
+        .map((item) => dequeueTaskUpdate(item.id!))
+    );
     await signOut(auth);
     setCurrentUser(null);
     navigate('/login');

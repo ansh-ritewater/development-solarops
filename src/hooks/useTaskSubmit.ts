@@ -100,6 +100,7 @@ export function useTaskSubmit() {
       try {
         await enqueueTaskUpdate({
           taskId:         taskId,
+          createdByUid:   currentUser.uid,
           taskNum:        data.taskNum,
           title:          data.title,
           previousStatus: data.previousStatus,

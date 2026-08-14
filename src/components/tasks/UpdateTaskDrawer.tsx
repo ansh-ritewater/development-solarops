@@ -367,6 +367,7 @@ export function UpdateTaskDrawer({ task, onClose }: UpdateTaskDrawerProps) {
 
         await enqueueTaskUpdate({
           taskId:         t.id,
+          createdByUid:   currentUser?.uid ?? '',
           taskNum:        t.taskNum,
           title:          t.title,
           previousStatus: t.status,

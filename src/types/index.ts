@@ -346,6 +346,7 @@ export interface Invite {
 export interface QueuedTaskUpdate {
   id?:            number;
   taskId:         string;
+  createdByUid:   string;
   taskNum:        string;
   title:          string;
   previousStatus: TaskStatus;

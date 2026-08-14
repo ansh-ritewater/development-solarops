@@ -91,6 +91,10 @@ export function TaskQueueProcessor() {
     const MAX_ATTEMPTS = 5;
 
     for (const item of queue) {
+      if (item.createdByUid && item.createdByUid !== currentUser?.uid) {
+        console.warn(`[Queue] Skipping item ${item.taskId} — created by a different user session.`);
+        continue;
+      }
       if (item.attempts >= MAX_ATTEMPTS) {
         console.error(
           `[Queue] Item ${item.taskId} exceeded max attempts (${MAX_ATTEMPTS}). Removing from queue.`
