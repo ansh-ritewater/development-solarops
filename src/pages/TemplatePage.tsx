@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Plus, Trash2, ChevronUp, ChevronDown, Save, Check, X, ChevronRight, Pencil, Route, FileText } from 'lucide-react';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { backfillEngineerDistrictCounts, reconcileSaleClosed } from '@/firebase/initAppConfig';
+import { backfillEngineerDistrictCounts, reconcileSaleClosed, computePipelineCounts } from '@/firebase/initAppConfig';
 import { db }                 from '@/firebase/config';
 import { toTitleCase }        from '@/utils/districtUtils';
 import { useAppConfig }       from '@/hooks/useAppConfig';
@@ -901,21 +901,7 @@ export function TemplatePage() {
         query(collection(db, 'tasks'), where('archived', '==', false))
       );
 
-      const computed: Record<string, number> = {
-        survey: 0, proposal: 0, field_review: 0, documents: 0,
-        backend: 0, completed: 0, dropped: 0,
-        unassigned_proposal: 0, unassigned_backend: 0, total_active: 0,
-      };
-      const activeStages = new Set(['survey', 'proposal', 'field_review', 'documents', 'backend']);
-
-      tasksSnap.forEach((snap) => {
-        const d     = snap.data();
-        const stage = (d['pipelineStage'] as string) ?? 'survey';
-        if (stage in computed) computed[stage]++;
-        if (stage === 'proposal' && !d['proposalAssignedTo']) computed['unassigned_proposal']++;
-        if (stage === 'backend'  && !d['backendAssignedTo'])  computed['unassigned_backend']++;
-        if (activeStages.has(stage)) computed['total_active']++;
-      });
+      const computed = computePipelineCounts(tasksSnap.docs);
 
       const stored = (config.pipelineCounts ?? {}) as Record<string, number>;
       const diffs  = Object.keys(computed).filter((k) => (stored[k] ?? 0) !== computed[k]);

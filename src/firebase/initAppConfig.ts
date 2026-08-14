@@ -425,6 +425,28 @@ export async function migrateLogisticsToBackend(): Promise<void> {
   }
 }
 
+export function computePipelineCounts(
+  docs: { data: () => Record<string, unknown> }[],
+): Record<string, number> {
+  const computed: Record<string, number> = {
+    survey: 0, proposal: 0, field_review: 0, documents: 0,
+    backend: 0, completed: 0, dropped: 0,
+    unassigned_proposal: 0, unassigned_backend: 0, total_active: 0,
+  };
+  const activeStages = new Set(['survey', 'proposal', 'field_review', 'documents', 'backend']);
+
+  docs.forEach((snap) => {
+    const d     = snap.data();
+    const stage = (d['pipelineStage'] as string) ?? 'survey';
+    if (stage in computed) computed[stage]++;
+    if (stage === 'proposal' && !d['proposalAssignedTo']) computed['unassigned_proposal']++;
+    if (stage === 'backend'  && !d['backendAssignedTo'])  computed['unassigned_backend']++;
+    if (activeStages.has(stage)) computed['total_active']++;
+  });
+
+  return computed;
+}
+
 export async function backfillPipelineCounts(): Promise<void> {
   try {
     const snap = await getDocs(query(
@@ -432,36 +454,7 @@ export async function backfillPipelineCounts(): Promise<void> {
       where('archived', '==', false),
     ));
 
-    const counts = {
-      survey:              0,
-      proposal:            0,
-      field_review:        0,
-      documents:           0,
-      backend:             0,
-      completed:           0,
-      dropped:             0,
-      unassigned_proposal: 0,
-      unassigned_backend:  0,
-      total_active:        0,
-    };
-
-    snap.docs.forEach((d) => {
-      const data  = d.data();
-      const stage = (data['pipelineStage'] as string) ?? 'survey';
-      if (stage in counts) {
-        counts[stage as keyof typeof counts]++;
-      }
-      counts.total_active++;
-      if (stage === 'proposal' && !data['proposalAssignedTo']) {
-        counts.unassigned_proposal++;
-      }
-      if (stage === 'backend' && !data['backendAssignedTo']) {
-        counts.unassigned_backend++;
-      }
-      if (stage === 'completed' || stage === 'dropped') {
-        counts.total_active--;
-      }
-    });
+    const counts = computePipelineCounts(snap.docs);
 
     await updateDoc(
       doc(db, 'appConfig', 'global'),

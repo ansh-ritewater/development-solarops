@@ -723,7 +723,7 @@ export function useTabCounts() {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'view_only') return;
     cancelRef.current = false;
     fetchCounts();
-    const interval = setInterval(fetchCounts, 60_000);
+    const interval = setInterval(fetchCounts, 180000);
     return () => {
       cancelRef.current = true;
       clearInterval(interval);
