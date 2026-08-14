@@ -10,19 +10,21 @@ a design change that touches it, a team change), move it to
 
 ## From the 10 Aug 2026 multi-AI audit (see TRACKER.md for methodology)
 
-- **Stored XSS risk (unverified):** a task field containing a
-  `javascript:` URL, if ever rendered directly in an `href`/`src` with
-  no scheme restriction, could execute when an admin opens it. Flagged
-  by one external audit source; never independently verified against
-  the real code.
-- **Offline queue has no owner-identity binding and never clears on
-  logout.** On a genuinely shared device, one field engineer's queued
-  offline data could sync under a different person's identity after
-  they log in. Relevant only if devices are ever actually shared
-  between team members.
-- **`initMemberInCounts` may run both at user creation and again in the
-  silent boot sequence** — a possible minor double-counting risk on a
-  brand-new team member. Low consequence; team growth is infrequent.
+- **RESOLVED 13 Aug 2026** — `QueuedTaskUpdate` now carries
+  `createdByUid`; `TaskQueueProcessor.tsx` skips syncing any item
+  stamped for a different uid than whoever's logged in;
+  `Header.tsx`'s logout clears queued items belonging to the
+  logging-out user specifically. Live-tested (person A queues
+  offline, logs out, person B logs in same device — confirmed not
+  synced under B's identity). See `TRACKER.md`'s 13 Aug entry for
+  full detail.
+- **CLEARED 13 Aug 2026, not a real bug.** Investigated fresh: only
+  one call site exists in the entire codebase (`useUserActions.ts`'s
+  `createUser`) — nothing in the boot sequence or anywhere else calls
+  it a second time. The function itself also already checks whether
+  a `memberCounts` entry exists for that uid before writing one, so
+  even a hypothetical second call would be a no-op. The suspected
+  risk doesn't hold up under a direct read of the current code.
 - **`logError` captures full task context, including PII** (phone
   numbers, GPS, email) into the `errorLogs` collection. Exposure is
   limited since only admins can read that collection.

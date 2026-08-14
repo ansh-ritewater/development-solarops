@@ -210,6 +210,22 @@ under the first one
   sign-out in `useAuth.ts` alone would not have caught this, only
   the new database-level check does. Re-enabling and re-logging-in
   afterward confirmed to work normally, unaffected.
+- **Stored XSS — CONFIRMED real 13 Aug 2026, Ansh's decision: park,
+  not fixed now.** Every photo/document render site checked (~15
+  sites across 9 files — PhotoZone.tsx, ProposalDocumentList.tsx,
+  TaskDetailDrawer.tsx, BackendWorkDrawer.tsx, ProposalWorkDrawer.tsx,
+  BackendPage.tsx, ProposalPage.tsx) renders a stored URL string
+  directly into `href`/`src` with zero scheme check — no
+  `startsWith('https://')` or equivalent anywhere. Not exploitable
+  through any normal use path today (every real photo/document URL
+  comes from Cloudinary's upload flow, which only ever produces safe
+  links) — the exposure is only if a bad value ever reached one of
+  these fields through some path other than normal use (a future
+  bug elsewhere, direct Firestore Console editing, etc.). Real fix,
+  whenever picked up: one shared "is this a safe link" helper, used
+  consistently across all ~15 sites, rather than 9 separately-patched
+  checks that could drift out of sync — same lesson as the Sales
+  Closed mapper-gap bug from earlier in this project's history.
 - **Deliberately parked, not planned to fix:** field-level write
   restrictions on `tasks`/`appConfig/global` by role. Ansh's decision
   (10 Aug 2026): field engineers and other roles need freedom to fill
