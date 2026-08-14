@@ -512,3 +512,31 @@ Small, single-file, no index changes, no rules changes:
   photo, which is unacceptable regardless of document-size risk.
 - Not committed yet — vite.config.ts sitting alongside PARKED.md's
   edit, both pending the next commit.
+
+**Session — 13 August 2026 (Lead Source fix + disabled-user rule fix):**
+- **Lead Source filter**: fixed identically to State's earlier narrow
+  fix — combinable with Created-Date/Due-Date only. `leadSourceFilter`
+  threaded as an 8th parameter through `buildAdminQuery`/
+  `subscribeToFilter` (live query + both loadMore branches) in
+  `useTasks.ts`, and into `fetchAllTasksForExport`'s Date/Due-Date
+  branches in `TasksPage.tsx`; added to the re-subscribe dependency
+  array. 2 new indexes added to `firestore.indexes.json`
+  (`archived+leadSource+createdAt`, `archived+leadSource+dueDate`).
+  `npm run build` clean; full `git diff` verified line-by-line
+  against spec. **NOT yet deployed to dev or tested live** — indexes
+  not yet deployed, no live click-test done yet for this one
+  specifically.
+- **Disabled-user Firestore rule gap fixed.** See `PARKED.md` for
+  full detail on the fix and its live test — genuinely confirmed
+  working via a real two-tab test (an already-open session for a
+  disabled account was blocked mid-session by the database itself,
+  not just the app's own sign-out check). Deployed to
+  `development-solarops` only.
+- `users` collection PII exposure (item 5 from this session's
+  4-item review) — investigated in full, Ansh's decision to park
+  as-is rather than attempt a quick fix. Full reasoning in
+  `PARKED.md`.
+- "Showing N tasks"/Load More's remaining filter-awareness gap —
+  confirmed still exactly as documented, no independent fix
+  available separate from the full State/Lead-Source scope work
+  already deferred.

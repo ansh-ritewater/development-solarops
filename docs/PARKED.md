@@ -184,12 +184,32 @@ under the first one
   Code-verified via exact diff match + clean build; NOT independently
   live-tested (no practical way to safely simulate a Cloudinary
   failure) — see `TRACKER.md`'s 13 Aug entry for full detail.
-- **Confirmed: Firestore rules never check any active/disabled status
-  on a user account — only role.** Every role-check function is
-  `isAuth() && userRole() == '<role>'`. If a "disable user" feature
-  exists in the UI, it is not enforced at the data layer at all —
-  needs checking whether this feature is actually used before treating
-  as urgent. Confirmed by direct grep of firestore.rules, 10 Aug 2026.
+- **RESOLVED 13 Aug 2026.** Confirmed first that "Disable" is a real,
+  actively-used feature (Team page has a full Disabled tab, counts,
+  and toggle) — not theoretical. Fixed by changing exactly one shared
+  function, `userRole()`, to return `null` for any account with
+  `active == false` instead of their real role — since every one of
+  the 8 role-check functions (`isAdmin()`, `isField()`, etc.) calls
+  `userRole()`, this closes the gap everywhere at once (every task
+  read/write, `appConfig` writes, `invites` writes) without touching
+  any other function or file. Deliberately did NOT change `isAuth()`
+  itself, to avoid affecting the app's existing new-account-creation
+  retry window, which relies on `isAuth()` succeeding before a
+  profile document may even exist yet.
+- Verified: rules syntax valid via local Firestore emulator (starts
+  clean, no parse error) before deploying. Deployed to
+  `development-solarops` only, not production.
+- **Live-tested by Ansh, 13 Aug 2026, and this is the test that
+  actually proves the fix (not just the pre-existing app-level
+  check):** a field-engineer test account was logged in and left
+  with an open session; the account was then disabled from the Team
+  page WITHOUT logging that session out first; an action was then
+  attempted from the still-open, already-logged-in tab — confirmed
+  blocked. This is the specific scenario this fix targets (a live
+  session outliving the moment of being disabled) — the client-side
+  sign-out in `useAuth.ts` alone would not have caught this, only
+  the new database-level check does. Re-enabling and re-logging-in
+  afterward confirmed to work normally, unaffected.
 - **Deliberately parked, not planned to fix:** field-level write
   restrictions on `tasks`/`appConfig/global` by role. Ansh's decision
   (10 Aug 2026): field engineers and other roles need freedom to fill
@@ -378,9 +398,31 @@ under the first one
   issue was the missing dedicated query branch (fixed same session,
   see TRACKER.md's "Sales Closed recency fix" and "small display/
   export fixes" entries).
-- users collection is readable by every authenticated user (full name/
-  email/mobile/district PII exposed to any field engineer). Real, but
-  low practical urgency for an internal-team-only app. Suggestion only.
+- **Fully investigated 13 Aug 2026, Ansh's decision: park as-is, not
+  a quick fix.** `firestore.rules`'s `users` match block is
+  `allow read: if isAuth()` — any signed-in person can read every
+  field of every team member's document. Confirmed via a full reader
+  audit: only `useUsers.ts` actually queries Firestore directly (the
+  whole collection, every field, no `where()`), feeding one shared
+  in-memory store — every other consumer (Team page, assignment
+  dropdowns in `TaskDetailDrawer.tsx`, `useFieldEngineers.ts`,
+  `CreateTaskModal.tsx`, `BulkTaskModal.tsx`) reads from that same
+  shared copy, not a separate query. Most of those consumers only
+  ever display a name, uid, engineer code, or phone number — not the
+  full document. **Why this isn't a quick rule fix:** Firestore
+  security rules can only allow/deny an entire document, not
+  individual fields — there's no way to let assignment dropdowns
+  keep seeing other people's names while hiding a colleague's mobile
+  number/district from someone with no reason to see it, without a
+  real schema change. **The actual fix, if ever picked up:** split
+  each user document into a small broadly-readable public profile
+  (name, role, uid — enough for dropdowns/pickers) and a separately-
+  ruled sensitive profile (mobile, district, email — admin-only
+  read), then update every write path that creates/edits a user to
+  maintain both, and update every consumer to read from the correct
+  one depending on need. Real, multi-file work — not urgent for a
+  ~50-person internal tool, staying parked until/unless this
+  project's threat model changes.
 - Cloudinary's actual console-side upload preset restrictions (folder/
   format/rate limits) have never been checked — the code-side setup is
   standard/expected, but whether the preset itself is properly scoped
