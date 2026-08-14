@@ -1,4 +1,4 @@
-import { useEffect }   from 'react';
+import { useEffect, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth }     from '@/hooks/useAuth';
 import { usePresence } from '@/hooks/usePresence';
@@ -7,15 +7,33 @@ import { Toaster }     from '@/components/ui/toaster';
 import { Layout }      from '@/components/layout/Layout';
 import { LoginPage }   from '@/pages/LoginPage';
 import { SignupPage }  from '@/pages/SignupPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { TasksPage }   from '@/pages/TasksPage';
-import { TeamPage }    from '@/pages/TeamPage';
-import { TemplatePage } from '@/pages/TemplatePage';
-import { ReportsPage }  from '@/pages/ReportsPage';
-import { ProposalPage }        from '@/pages/ProposalPage';
-import { BackendPage }         from '@/pages/BackendPage';
-import { BackendManagerPage }  from '@/pages/BackendManagerPage';
-import { ErrorLogsPage }       from '@/pages/ErrorLogsPage';
+const DashboardPage = lazy(() =>
+  import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage }))
+);
+const TasksPage = lazy(() =>
+  import('@/pages/TasksPage').then((m) => ({ default: m.TasksPage }))
+);
+const TeamPage = lazy(() =>
+  import('@/pages/TeamPage').then((m) => ({ default: m.TeamPage }))
+);
+const TemplatePage = lazy(() =>
+  import('@/pages/TemplatePage').then((m) => ({ default: m.TemplatePage }))
+);
+const ReportsPage = lazy(() =>
+  import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage }))
+);
+const ProposalPage = lazy(() =>
+  import('@/pages/ProposalPage').then((m) => ({ default: m.ProposalPage }))
+);
+const BackendPage = lazy(() =>
+  import('@/pages/BackendPage').then((m) => ({ default: m.BackendPage }))
+);
+const BackendManagerPage = lazy(() =>
+  import('@/pages/BackendManagerPage').then((m) => ({ default: m.BackendManagerPage }))
+);
+const ErrorLogsPage = lazy(() =>
+  import('@/pages/ErrorLogsPage').then((m) => ({ default: m.ErrorLogsPage }))
+);
 
 function ComingSoonPage() {
   return (

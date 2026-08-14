@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore }      from '@/store/authStore';
 import { useTasks }          from '@/hooks/useTasks';
@@ -7,6 +8,7 @@ import { BottomNav }         from './BottomNav';
 import { SideNav }           from './SideNav';
 import { OfflineBanner }     from '@/components/offline/OfflineBanner';
 import { TaskQueueProcessor } from '@/components/offline/TaskQueueProcessor';
+import { ErrorBoundary }     from '@/components/ErrorBoundary';
 
 function TasksListener() {
   const { currentUser } = useAuthStore();
@@ -61,7 +63,15 @@ export function Layout() {
       {/* Main content — pushed down by header height, right of sidebar on desktop */}
       <main className="pt-14 md:ml-52 min-h-screen">
         <div className="px-4 py-5 pb-24 md:pb-8">
-          <Outlet />
+          <ErrorBoundary>
+            <Suspense fallback={
+              <div className="flex h-[60vh] items-center justify-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-blue border-t-transparent" />
+              </div>
+            }>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 
