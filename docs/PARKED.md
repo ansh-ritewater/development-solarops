@@ -226,6 +226,17 @@ under the first one
   consistently across all ~15 sites, rather than 9 separately-patched
   checks that could drift out of sync — same lesson as the Sales
   Closed mapper-gap bug from earlier in this project's history.
+- **New, found 14 Aug 2026 while auditing appConfig write sites for
+  the permission-tightening fix, NOT fixed:** `assignStageTeamMember`
+  and `reEngageLead` (`usePipelineActions.ts`) are both documented
+  elsewhere as "admin only," but neither has a code-level
+  `if (currentUser.role !== 'admin') throw` check the way
+  `adminOverrideStage` does — both only check `if (!currentUser)`.
+  Presumably still protected by Firestore rules (role+assignment
+  conditions on `tasks`) and UI gating, same category as the 3
+  functions fixed earlier this session, just not yet investigated
+  to the same depth. Real, not urgent — same shape as the earlier
+  role-check gap, likely the same fix if picked up.
 - **Deliberately parked, not planned to fix:** field-level write
   restrictions on `tasks`/`appConfig/global` by role. Ansh's decision
   (10 Aug 2026): field engineers and other roles need freedom to fill
@@ -309,6 +320,17 @@ under the first one
   batch writes completely silently — no toast on success or failure,
   only `console.error` — and a new device/cleared browser re-triggers
   all of them again, since the gate is client-side, not server-side.**
+- **Ansh's note, 13 Aug 2026: several separately-parked items here
+  share the same real fix — a real backend (Cloud Functions).**
+  Specifically: App Check/rate-limiting, and the counter-drift risk
+  (denormalized counters across ~13 code paths) both need backend
+  infrastructure this app doesn't currently have; there is no
+  smaller code-only fix available for either. Decision: keep both
+  parked exactly as-is for now, but remember that building a real
+  backend — whenever that's eventually taken on — would resolve
+  several separately-tracked structural risks at once, not just one.
+  Worth factoring in when deciding whether/when to invest in this,
+  once current scaling/cleanup/hygiene work is further along.
 - Separately, 4 Admin Tools buttons ("Recalculate Pipeline Counts",
   "Check Status/Stage Corruption", "Migrate Existing Districts to
   Maharashtra", "Migrate Historical Reverted Tasks") run their OWN
@@ -384,7 +406,32 @@ under the first one
   document data.
 - Custom auth claims (to replace a per-request Firestore read for role
   checks).
-- Tightening `appConfig` write permissions.
+- **RESOLVED 14 Aug 2026** — `appConfig/global`'s write rule split
+  into `create`/`delete` (admin-only, unchanged) and `update`
+  (admin unconditional, or field/proposal/backend restricted to
+  only `pipelineCounts`/`memberCounts`/`engineerCounts`/
+  `districtCounts` via `request.resource.data.diff(resource.data)
+  .affectedKeys().hasOnly([...])`). Confirmed beforehand via a full
+  write-site audit across `usePipelineActions.ts`,
+  `useTaskSubmit.ts`, and `TaskQueueProcessor.tsx`: every non-admin
+  write ever made touches only these 4 field paths — zero writes to
+  `taskTemplate`/`documentTemplate`/`districtsByState`/`leadSources`/
+  `saleClosedConfig` found anywhere. Rules syntax validated via the
+  local Firestore emulator before deploying. Deployed to
+  `development-solarops` and **live-tested by Ansh**: a real
+  proposal submission, backend checklist action, and survey
+  completion all confirmed still succeeding normally.
+- **RESOLVED 14 Aug 2026** — all 9 real post-login pages (Dashboard,
+  Tasks, Team, Template, Reports, Proposal, Backend, Backend
+  Manager, Error Logs) converted to `React.lazy`; Login/Signup left
+  as static imports deliberately (outside the authenticated Layout,
+  nothing to gain). One shared `ErrorBoundary` + `Suspense` added
+  around `Layout.tsx`'s single `<Outlet />`, covering all 9 routes
+  at once. **Measured result: main bundle dropped from ~555 KB to
+  109.93 KB** (~80% reduction) — confirmed via real build output,
+  not estimated. **Live-tested by Ansh:** all 9 pages confirmed
+  loading normally; Network tab confirmed separate small per-page
+  chunk files loading instead of one giant bundle.
 - Deciding `titleLower`'s fate (written but never queried — dead weight).
 - Deleting vestigial logistics/installation code (folded into Backend
   long ago, never removed from types/rules/indexes).

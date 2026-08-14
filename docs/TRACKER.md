@@ -602,3 +602,45 @@ review):**
   session's standard rigor throughout.
 - **NOT deployed to production** — queued with everything else
   currently sitting in dev-only.
+
+**Session — 14 August 2026 (3 structural-risk fixes):**
+- **Tab-counts polling interval lengthened 60s → 180s** — one-line
+  change, `useTasks.ts`'s `useTabCounts`. Deliberately conservative:
+  cuts the ~$150-300/month estimated polling cost by roughly 3x
+  with no code restructuring; only affects how quickly a CHANGE
+  MADE BY SOMEONE ELSE shows up in your own badge numbers while
+  idle — your own actions still update instantly, and the real task
+  list itself is a separate live connection, unaffected.
+- **Pipeline-counts duplicate-logic risk fixed, AND a real
+  divergence found and corrected in the process:** extracted the
+  counting logic (previously duplicated between `TemplatePage.tsx`'s
+  Recalculate button and `initAppConfig.ts`'s `backfillPipelineCounts`)
+  into one new shared, exported `computePipelineCounts()` function,
+  now used by both. The two versions had genuinely disagreed on
+  `total_active` for any task carrying an off-spec/legacy
+  `pipelineStage` value (e.g. vestigial `logistics`/`installation`)
+  — confirmed via direct code comparison before fixing, not assumed.
+  Adopted the button's safer, explicit-allowlist behavior as the one
+  true version. Ansh confirmed no real task currently carries such a
+  value, so this fix's effect is preventive, not corrective, for
+  today's real data — same category as the earlier `titleLower`-
+  style dead-weight findings, closing a real gap before it's ever
+  actually hit.
+- **`appConfig` write-permission tightening** — see `PARKED.md` for
+  full detail. Live-tested.
+- **Code-splitting + error boundaries added** — see `PARKED.md` for
+  full detail, including the measured 555KB→110KB bundle reduction.
+  Live-tested.
+- Also flagged during this session's write-audit, NOT fixed (out of
+  scope for today): `assignStageTeamMember` and `reEngageLead` are
+  both documented as "admin only" but neither has a code-level role
+  check like `adminOverrideStage` does — presumably still protected
+  by Firestore rules + UI gating, but a real, previously-undocumented
+  inconsistency in how "admin only" is enforced. See `PARKED.md`.
+- `npm run build` clean at every step; every diff verified
+  line-by-line against spec; rules syntax validated via local
+  emulator before deploying.
+- **Deployed to `development-solarops` only** (the rules change) —
+  the code changes (polling interval, pipeline-counts refactor,
+  lazy-loading) are dev-only pending the next batched deployment,
+  same as everything else currently queued.

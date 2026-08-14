@@ -163,10 +163,14 @@ grep "lazy(|React.lazy|Suspense" src/App.tsx  → no results
 grep "ErrorBoundary" src/ -r --include=*.tsx  → no results
 ```
 
-**Confirmed: zero code-splitting, zero route-level lazy-loading, zero
-error boundaries anywhere in the app.** Every page/route is bundled
-and loaded up front as one JS payload — there is no `React.lazy`, no
-`Suspense` boundary, and no per-route chunking of any kind. A fresh
+**RESOLVED 14 Aug 2026** — all 9 real post-login pages now use
+`React.lazy`, wrapped in one shared `Suspense`+`ErrorBoundary` around
+`Layout.tsx`'s single `<Outlet />`. Main bundle dropped from ~555 KB
+to 109.93 KB (~80% reduction), confirmed via real build output. Full
+detail in `PARKED.md` and `TRACKER.md`'s 14 Aug entry. The bundle
+size figures immediately below this note reflect the PRE-fix state
+(7 Aug 2026 measurement) — kept for historical reference, not
+current reality. A fresh
 `npm run build` run during this session confirms the real production
 bundle sizes (these are the actual current build outputs, not
 estimates):
