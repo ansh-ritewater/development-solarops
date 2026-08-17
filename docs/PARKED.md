@@ -226,17 +226,16 @@ under the first one
   consistently across all ~15 sites, rather than 9 separately-patched
   checks that could drift out of sync — same lesson as the Sales
   Closed mapper-gap bug from earlier in this project's history.
-- **New, found 14 Aug 2026 while auditing appConfig write sites for
-  the permission-tightening fix, NOT fixed:** `assignStageTeamMember`
-  and `reEngageLead` (`usePipelineActions.ts`) are both documented
-  elsewhere as "admin only," but neither has a code-level
-  `if (currentUser.role !== 'admin') throw` check the way
-  `adminOverrideStage` does — both only check `if (!currentUser)`.
-  Presumably still protected by Firestore rules (role+assignment
-  conditions on `tasks`) and UI gating, same category as the 3
-  functions fixed earlier this session, just not yet investigated
-  to the same depth. Real, not urgent — same shape as the earlier
-  role-check gap, likely the same fix if picked up.
+- **RESOLVED 14 Aug 2026** — both `assignStageTeamMember` and
+  `reEngageLead` now check `currentUser.role !== 'admin'` and throw
+  an explicit `'Not authorized — admin only'` error, matching the
+  exact pattern already used for `setSaleClosedManual`/
+  `resetSaleClosedToAuto`/`clearStuckCorrectionFlag` earlier this
+  session. `npm run build` clean; diff confirmed exactly 2 new lines
+  added, nothing else touched. **Live-tested by Ansh:** normal admin
+  flows for both — assigning/reassigning a Proposal or Backend team
+  member, and re-engaging a dropped lead — both confirmed still
+  working exactly as before.
 - **Deliberately parked, not planned to fix:** field-level write
   restrictions on `tasks`/`appConfig/global` by role. Ansh's decision
   (10 Aug 2026): field engineers and other roles need freedom to fill
@@ -320,17 +319,43 @@ under the first one
   batch writes completely silently — no toast on success or failure,
   only `console.error` — and a new device/cleared browser re-triggers
   all of them again, since the gate is client-side, not server-side.**
-- **Ansh's note, 13 Aug 2026: several separately-parked items here
-  share the same real fix — a real backend (Cloud Functions).**
-  Specifically: App Check/rate-limiting, and the counter-drift risk
-  (denormalized counters across ~13 code paths) both need backend
-  infrastructure this app doesn't currently have; there is no
-  smaller code-only fix available for either. Decision: keep both
-  parked exactly as-is for now, but remember that building a real
-  backend — whenever that's eventually taken on — would resolve
-  several separately-tracked structural risks at once, not just one.
-  Worth factoring in when deciding whether/when to invest in this,
-  once current scaling/cleanup/hygiene work is further along.
+- **Ansh's note, 13-14 Aug 2026, CONSOLIDATED: every parked item in
+  this whole project that specifically needs a real backend (Cloud
+  Functions), gathered in one place so none get lost or duplicated.**
+  None of these have a smaller code-only fix available — all six are
+  waiting on the same underlying infrastructure decision:
+  1. **App Check / rate-limiting** — no way to verify requests are
+     genuine or cap abuse without server-side enforcement.
+  2. **Counter-drift risk** (denormalized counters across ~13 code
+     paths, `pipelineCounts`/`memberCounts`/`engineerCounts`/
+     `districtCounts`) — real fix is one single server-side place
+     maintaining these, instead of ~13 scattered client code paths.
+     Interim mitigation already shipped 14 Aug 2026: the
+     `appConfig` write-permission tightening (see this file's
+     Hygiene section) reduces WHO can write these fields, but
+     doesn't eliminate the drift risk itself — that needs the full
+     backend fix.
+  3. **`errorLogs` unrestricted writes** — any authenticated user
+     can currently write unlimited log entries; a real per-user
+     write cap needs server-side enforcement, same root cause as #1.
+  4. **Custom auth claims** (to replace a per-request Firestore
+     read for every role check) — can ONLY be set from privileged
+     backend code; no client-side path exists for this at all.
+  5. **Push notifications** — see `docs/NOTIFICATIONS.md` for full
+     detail; independently confirmed there to need Cloud Functions
+     as this app's first-ever server-side component. Cross-
+     referencing here so this consolidated list stays the single
+     source of truth for "needs a backend."
+  6. **`appConfig/global`'s write-contention risk** (single hot
+     document, 58 write sites across 13 files) — the interim
+     permission-tightening fix (#2 above) does NOT resolve this;
+     full resolution needs the writes centralized server-side.
+  **Decision: keep all six parked exactly as-is for now.** Building
+  a real backend, whenever that's eventually taken on, would resolve
+  all six at once — this is the single highest-leverage piece of
+  infrastructure this project could invest in, once current scaling/
+  cleanup/hygiene work is further along. Do not lose track of any of
+  these six when that decision eventually comes up.
 - Separately, 4 Admin Tools buttons ("Recalculate Pipeline Counts",
   "Check Status/Stage Corruption", "Migrate Existing Districts to
   Maharashtra", "Migrate Historical Reverted Tasks") run their OWN

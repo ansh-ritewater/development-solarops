@@ -644,3 +644,25 @@ review):**
   the code changes (polling interval, pipeline-counts refactor,
   lazy-loading) are dev-only pending the next batched deployment,
   same as everything else currently queued.
+
+**Session — 14 August 2026 (assignStageTeamMember/reEngageLead
+role-check gap fixed):**
+- Closed the last remaining instance of the role-check gap pattern
+  first found and fixed earlier this session (`setSaleClosedManual`,
+  `resetSaleClosedToAuto`, `clearStuckCorrectionFlag`) — this pair
+  was found during the `appConfig` permission-tightening audit, not
+  the original pass. Same fix, same convention: one line each,
+  `if (currentUser.role !== 'admin') throw new Error('Not authorized
+  — admin only')`, added immediately after each function's existing
+  `if (!currentUser)` check.
+- Also consolidated, same session: every parked item across this
+  whole project that specifically needs a real backend (Cloud
+  Functions) — 6 items total, previously scattered across 2 separate
+  notes — gathered into one single tracked list in `PARKED.md`, so
+  none get lost when that infrastructure decision eventually comes
+  up. See `PARKED.md` for the full list.
+- `npm run build` clean; diff verified line-by-line against spec.
+  **Confirmed 14 Aug 2026: live-tested by Ansh** — both normal admin
+  flows (team assignment, lead re-engagement) confirmed unaffected.
+- **NOT deployed to production** — dev-only, queued with everything
+  else currently sitting there.

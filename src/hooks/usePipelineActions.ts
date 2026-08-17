@@ -233,6 +233,7 @@ export function usePipelineActions() {
     assigneeName: string,
   ): Promise<void> {
     if (!currentUser) throw new Error('Not authenticated');
+    if (currentUser.role !== 'admin') throw new Error('Not authorized — admin only');
 
     const fieldMap = {
       proposal: { uidField: 'proposalAssignedTo', nameField: 'proposalAssignedToName' },
@@ -1004,6 +1005,7 @@ export function usePipelineActions() {
     note:   string,
   ): Promise<void> {
     if (!currentUser) throw new Error('Not authenticated');
+    if (currentUser.role !== 'admin') throw new Error('Not authorized — admin only');
     try {
       let blockedByArchive = false;
       let destinationStage: PipelineStage = 'proposal';
