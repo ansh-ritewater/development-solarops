@@ -94,6 +94,23 @@ been evaluated against.
 **Method needed:** deliberate market/competitor research — a business
 decision about what to look at and why, not a code or measurement task.
 
+## Ansh's review, 14 August 2026
+
+Reviewed all six categories in this file, plus the separate
+Hygiene/cleanup list in `PARKED.md`. Decision: leave every item in
+both lists exactly as-is for now — nothing here is urgent given the
+app's current real usage (~800 tasks, still early/free-trial scale).
+
+Two items flagged as worth prioritizing whenever this list is picked
+back up, specifically because they need a human watching a human
+rather than more code investigation (unlike almost everything else
+done this session): **real field-engineer usability review** (#2)
+and **workflow/business-rule gap analysis** (#4) — the latter
+specifically needs Ansh's own domain knowledge, not code reading, to
+even begin. The other four (load testing, accessibility, production
+monitoring, competitive benchmarking) can wait indefinitely with no
+real downside.
+
 ## Honest summary
 
 The existing SolarOps codebase — frontend, the absence of a real
