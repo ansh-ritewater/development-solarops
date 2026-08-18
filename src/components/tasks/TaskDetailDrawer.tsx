@@ -6,6 +6,7 @@ import {
   MapPin, Calendar, User, Archive, ArchiveRestore, ChevronDown, ChevronUp, ExternalLink, Pencil,
 } from 'lucide-react';
 import { db } from '@/firebase/config';
+import { cloudinaryThumb }    from '@/utils/uploadToCloudinary';
 import { useAuthStore }       from '@/store/authStore';
 import { useTaskActions }     from '@/hooks/useTaskActions';
 import { useFieldEngineers }  from '@/hooks/useFieldEngineers';
@@ -759,7 +760,7 @@ function PhotoGrid({ urls, label }: { urls: string[]; label: string }) {
               className="relative block rounded-lg overflow-hidden bg-gray-100 hover:opacity-90 transition-opacity"
               style={{ paddingBottom: '100%' }}
             >
-              <img src={url} alt={`${label} ${i + 1}`}
+              <img src={cloudinaryThumb(url)} alt={`${label} ${i + 1}`}
                 className="absolute inset-0 h-full w-full object-cover" />
               <ExternalLink className="absolute right-1 top-1 h-3 w-3 text-white drop-shadow" />
             </a>

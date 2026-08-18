@@ -5,7 +5,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button }             from '@/components/ui/button';
 import { cn }                 from '@/lib/utils';
-import { uploadToCloudinary } from '@/utils/uploadToCloudinary';
+import { uploadToCloudinary, cloudinaryThumb } from '@/utils/uploadToCloudinary';
 import { usePipelineActions } from '@/hooks/usePipelineActions';
 import { useAppConfig }       from '@/hooks/useAppConfig';
 import { useAuthStore }       from '@/store/authStore';
@@ -640,7 +640,7 @@ export function BackendWorkDrawer({ task, onClose, isReadOnly = false }: Backend
                         ) : (
                           <a key={i} href={url} target="_blank"
                              rel="noopener noreferrer" download>
-                            <img src={url} alt={`Document ${i + 1}`}
+                            <img src={cloudinaryThumb(url)} alt={`Document ${i + 1}`}
                               className="w-full aspect-square object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
                           </a>
                         )
@@ -777,7 +777,7 @@ export function BackendWorkDrawer({ task, onClose, isReadOnly = false }: Backend
                               ) : (
                                 <a key={i} href={url} target="_blank"
                                    rel="noopener noreferrer" download>
-                                  <img src={url} alt={`Photo ${i + 1}`}
+                                  <img src={cloudinaryThumb(url)} alt={`Photo ${i + 1}`}
                                     className="w-full aspect-square object-cover rounded-lg border border-gray-200 hover:opacity-90 transition-opacity" />
                                 </a>
                               )
@@ -946,7 +946,7 @@ export function BackendWorkDrawer({ task, onClose, isReadOnly = false }: Backend
                         {step.photoUrls.map((url, i) => (
                           <a key={i} href={url} target="_blank" rel="noopener noreferrer" download>
                             <img
-                              src={url}
+                              src={cloudinaryThumb(url)}
                               alt={`Step photo ${i + 1}`}
                               className="w-full aspect-square object-cover rounded border border-green-200"
                             />
@@ -1078,7 +1078,7 @@ export function BackendWorkDrawer({ task, onClose, isReadOnly = false }: Backend
                           {stepPhotos.map((url, i) => (
                             <div key={i} className="relative">
                               <img
-                                src={url}
+                                src={cloudinaryThumb(url)}
                                 alt={`Photo ${i + 1}`}
                                 className="w-full aspect-square object-cover rounded-lg border border-orange-200"
                               />

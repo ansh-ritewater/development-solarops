@@ -7,6 +7,7 @@ import { useProposalTasks, useLoadMoreProposalHistory } from '@/hooks/useProposa
 import { useAuthStore }       from '@/store/authStore';
 import { ProposalWorkDrawer } from '@/components/pipeline/ProposalWorkDrawer';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
+import { cloudinaryThumb }      from '@/utils/uploadToCloudinary';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { getProposalNoteRecipientLabel } from '@/utils/proposalNoteLabel';
 import { logError } from '@/utils/logError';
@@ -311,7 +312,7 @@ function HistoryDetailContent({ task, onClose }: { task: Task | null; onClose: (
                     ) : (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={url}
+                          src={cloudinaryThumb(url)}
                           alt={`Survey photo ${i + 1}`}
                           className="w-full aspect-square object-cover rounded-lg border border-gray-200"
                         />

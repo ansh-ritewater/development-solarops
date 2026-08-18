@@ -8,6 +8,7 @@ import { useBackendTasks, useLoadMoreBackendHistory } from '@/hooks/useBackendTa
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { BackendWorkDrawer }   from '@/components/pipeline/BackendWorkDrawer';
 import { getProposalDocuments } from '@/utils/proposalDocuments';
+import { cloudinaryThumb }      from '@/utils/uploadToCloudinary';
 import { logError } from '@/utils/logError';
 import { ProposalDocumentList } from '@/components/pipeline/ProposalDocumentList';
 import { cn }   from '@/lib/utils';
@@ -317,7 +318,7 @@ function BackendHistoryDetailContent({ task, onClose }: { task: Task | null; onC
                     ) : (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={url}
+                          src={cloudinaryThumb(url)}
                           alt={`Survey photo ${i + 1}`}
                           className="w-full aspect-square object-cover rounded-lg border border-gray-200"
                         />
@@ -391,7 +392,7 @@ function BackendHistoryDetailContent({ task, onClose }: { task: Task | null; onC
                         {step.photoUrls.map((url, i) => (
                           <a key={i} href={url} target="_blank"
                              rel="noopener noreferrer" download>
-                            <img src={url} alt={`Photo ${i+1}`}
+                            <img src={cloudinaryThumb(url)} alt={`Photo ${i+1}`}
                               className="w-full aspect-square object-cover rounded border border-green-200" />
                           </a>
                         ))}
@@ -439,7 +440,7 @@ function BackendHistoryDetailContent({ task, onClose }: { task: Task | null; onC
                         <div className="grid grid-cols-3 gap-1">
                           {photos.map((url: string, i: number) => (
                             <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt={`Photo ${i + 1}`}
+                              <img src={cloudinaryThumb(url)} alt={`Photo ${i + 1}`}
                                 className="w-full aspect-square object-cover rounded-lg border border-orange-200" />
                             </a>
                           ))}

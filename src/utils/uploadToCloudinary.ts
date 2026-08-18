@@ -5,6 +5,11 @@ export interface UploadResult {
   publicId: string;
 }
 
+export function cloudinaryThumb(url: string, size = 400): string {
+  if (!url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url;
+  return url.replace('/upload/', `/upload/w_${size},q_auto,f_auto/`);
+}
+
 export async function uploadToCloudinary(
   file:     File,
   options?: {

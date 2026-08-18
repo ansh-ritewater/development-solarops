@@ -5,7 +5,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button }             from '@/components/ui/button';
 import { cn }                 from '@/lib/utils';
-import { uploadToCloudinary } from '@/utils/uploadToCloudinary';
+import { uploadToCloudinary, cloudinaryThumb } from '@/utils/uploadToCloudinary';
 import { usePipelineActions } from '@/hooks/usePipelineActions';
 import { useToast }           from '@/components/ui/toast';
 import { doc, getDoc }        from 'firebase/firestore';
@@ -526,7 +526,7 @@ export function ProposalWorkDrawer({ task, onClose }: ProposalWorkDrawerProps) {
                     {Object.values(surveyData.fieldPhotos ?? {}).flat().map((url, i) => (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={url}
+                          src={cloudinaryThumb(url)}
                           alt={`Survey photo ${i + 1}`}
                           className="w-full aspect-square object-cover rounded-lg border border-gray-200"
                         />

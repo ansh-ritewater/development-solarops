@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Camera, X, Loader2 } from 'lucide-react';
-import { uploadToCloudinary } from '@/utils/uploadToCloudinary';
+import { uploadToCloudinary, cloudinaryThumb } from '@/utils/uploadToCloudinary';
 import { _emitToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
@@ -235,7 +235,7 @@ export function PhotoZone({
                   </a>
                 ) : (
                   <img
-                    src={url}
+                    src={cloudinaryThumb(url)}
                     alt={`${label} ${i + 1}`}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
