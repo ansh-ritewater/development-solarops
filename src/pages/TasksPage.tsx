@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, memo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, Search, ClipboardList, ChevronRight, Download, Upload, X } from 'lucide-react';
 import {
@@ -10,12 +10,13 @@ import { useTaskStore }       from '@/store/taskStore';
 import { useAuthStore }       from '@/store/authStore';
 import { Button }             from '@/components/ui/button';
 import { CreateTaskModal }    from '@/components/tasks/CreateTaskModal';
-import { BulkTaskModal }      from '@/components/tasks/BulkTaskModal';
+const BulkTaskModal = lazy(() =>
+  import('@/components/tasks/BulkTaskModal').then((m) => ({ default: m.BulkTaskModal }))
+);
 import { TaskDetailDrawer }   from '@/components/tasks/TaskDetailDrawer';
 import { UpdateTaskDrawer }     from '@/components/tasks/UpdateTaskDrawer';
 import { FieldReviewDrawer }   from '@/components/pipeline/FieldReviewDrawer';
 import { DocumentsWorkDrawer } from '@/components/pipeline/DocumentsWorkDrawer';
-import { exportTasksToExcel } from '@/utils/exportTasksToExcel';
 import { cn }                 from '@/lib/utils';
 import { useArchivedTasks, useTasks, useTabCounts, docToTask, type AdminFilter } from '@/hooks/useTasks';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -346,7 +347,7 @@ function daysInStage(task: Task): number | null {
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+const TaskCard = memo(function TaskCard({ task, onClick }: { task: Task; onClick: (task: Task) => void }) {
   const { label, badge, border } = STATUS_META[task.status];
   const { currentUser } = useAuthStore();
   const isAdminCard = currentUser?.role === 'admin' || currentUser?.role === 'view_only';
@@ -354,7 +355,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => onClick(task)}
       className={cn(
         'w-full text-left rounded-xl border border-gray-100 bg-white px-4 py-4 shadow-sm',
         'hover:shadow-md transition-all flex items-start gap-3 border-l-4',
@@ -507,7 +508,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       </div>
     </button>
   );
-}
+});
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -811,7 +812,7 @@ export function TasksPage() {
     });
   }, [visible, isAdmin, filter]);
 
-  function handleCardClick(task: Task) {
+  const handleCardClick = useCallback((task: Task) => {
     if (task.archived) {
       setDetailTask(task);
       return;
@@ -825,7 +826,7 @@ export function TasksPage() {
     } else {
       setUpdateTask(task);
     }
-  }
+  }, [isAdmin, isViewOnly, currentUser?.role]);
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -854,6 +855,7 @@ export function TasksPage() {
                   showToast('No tasks match the current filters to export.', 'error');
                   return;
                 }
+                const { exportTasksToExcel } = await import('@/utils/exportTasksToExcel');
                 exportTasksToExcel(allMatching);
                 showToast(`Exported ${allMatching.length} tasks.`, 'success');
               } catch (err) {
@@ -1317,7 +1319,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-blue-200" />
                         </div>
                         {reviewTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1331,7 +1333,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-teal-200" />
                         </div>
                         {documentsTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1345,7 +1347,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-gray-200" />
                         </div>
                         {activeSurveyTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1359,7 +1361,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-orange-200" />
                         </div>
                         {inPipelineTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1373,7 +1375,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-green-200" />
                         </div>
                         {completedTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1387,7 +1389,7 @@ export function TasksPage() {
                           <div className="flex-1 h-px bg-red-200" />
                         </div>
                         {droppedTasks.map((task) => (
-                          <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+                          <TaskCard key={task.id} task={task} onClick={handleCardClick} />
                         ))}
                       </div>
                     )}
@@ -1397,7 +1399,7 @@ export function TasksPage() {
             </>
           ) : (
             sorted.map((task) => (
-              <TaskCard key={task.id} task={task} onClick={() => handleCardClick(task)} />
+              <TaskCard key={task.id} task={task} onClick={handleCardClick} />
             ))
           )}
           {hasMore && !isLoadingTasks && (
@@ -1434,11 +1436,13 @@ export function TasksPage() {
         />
       )}
 
-      {isAdmin && (
-        <BulkTaskModal
-          open={showBulk}
-          onClose={() => setShowBulk(false)}
-        />
+      {isAdmin && showBulk && (
+        <Suspense fallback={null}>
+          <BulkTaskModal
+            open={showBulk}
+            onClose={() => setShowBulk(false)}
+          />
+        </Suspense>
       )}
 
       <TaskDetailDrawer

@@ -57,6 +57,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -71,7 +72,6 @@ export default defineConfig({
             '@radix-ui/react-slot',
             'lucide-react',
           ],
-          'vendor-utils': ['xlsx', 'papaparse', 'recharts', 'zustand'],
         },
       },
     },
