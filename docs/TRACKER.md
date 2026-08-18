@@ -666,3 +666,30 @@ role-check gap fixed):**
   flows (team assignment, lead re-engagement) confirmed unaffected.
 - **NOT deployed to production** — dev-only, queued with everything
   else currently sitting there.
+
+**Session — 14 August 2026 (Performance batch: Cloudinary thumbnails,
+TaskCard memo, vendor-utils split + deferred loading, sourcemaps +
+robots.txt):**
+- **Cloudinary thumbnails** — see `PERFORMANCE.md`'s corrected P0
+  row 3. 11 sites fixed (originally counted as 9), zero risk to any
+  stored photo/document — only preview rendering changed.
+- **TaskCard memo** — see `PERFORMANCE.md`'s corrected P0 row 4.
+- **Vendor-utils split + deferred loading** — see `PARKED.md` for
+  full detail, including the mid-implementation correction and the
+  final measured numbers beating the original baseline.
+- **Sourcemaps enabled + real `robots.txt` added** — small, safe,
+  purely additive; confirmed via real build output (`.map` files
+  present, `robots.txt` no longer falling through to `index.html`).
+- **Deliberately NOT touched, documented as a real tradeoff:** the
+  `Cache-Control: no-store` header on `index.html`/`sw.js`/
+  `manifest.json` — see `PARKED.md` for the full reasoning (PWA
+  deploy-freshness risk vs. faster back-navigation).
+- `npm run build` clean at every step; every diff verified line-by-
+  line against spec; one real mid-implementation deviation (the
+  `BulkTaskModal` mount-gating) caught, explained, and approved by
+  Ansh before proceeding, not silently implemented either way.
+- **Confirmed 14 Aug 2026: live-tested by Ansh** — all 5 items
+  (Excel export, Bulk Upload, Reports charts, Tasks page load speed,
+  the other 7 pages) confirmed working correctly.
+- **NOT deployed to production** — dev-only, queued with everything
+  else currently sitting there.

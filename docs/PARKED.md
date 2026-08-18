@@ -457,6 +457,51 @@ under the first one
   not estimated. **Live-tested by Ansh:** all 9 pages confirmed
   loading normally; Network tab confirmed separate small per-page
   chunk files loading instead of one giant bundle.
+- **RESOLVED 14 Aug 2026 — vendor-utils split + 3 heavy dependencies
+  deferred to click/visit-time.** Initial fix (removing the forced
+  `vendor-utils` grouping in `vite.config.ts`) had an unintended
+  side effect, caught via real build measurement, not assumed:
+  since `xlsx`/`papaparse`/`recharts` were each only ever consumed
+  from one already-lazy page chunk, Rollup inlined them directly
+  into those chunks instead of splitting them out — `TasksPage`
+  jumped to 412.84 kB, `ReportsPage` to 418.40 kB. Fixed properly
+  with a follow-up: Excel export (`exportTasksToExcel`) converted
+  to a dynamic `import()` inside its own click handler; `BulkTaskModal`
+  converted to `React.lazy` AND additionally gated on `showBulk`
+  (it was previously always-mounted for any admin, gated only on
+  `isAdmin` — lazy-loading alone would have been a no-op, caught
+  live during implementation, not assumed correct); the 3 chart
+  sections in `ReportsPage.tsx` extracted into a new
+  `src/pages/ReportsCharts.tsx`, lazy-loaded with its own Suspense
+  fallback. **Confirmed safe:** `BulkTaskModal` already reset its
+  own internal state on close via existing `handleClose` logic
+  before this change — so full unmount/remount on close/reopen
+  (the mechanism enabling the fix) produces an identical user-
+  visible result to before, not a behavior change. **Final measured
+  result, beating even the original pre-this-session baseline:**
+  TasksPage 95.21 kB (was 108.79 kB before any of this session's
+  work), ReportsPage 13.94 kB (was 16.18 kB). New on-demand chunks:
+  `BulkTaskModal-*.js` 30.24 kB, `exportTasksToExcel-*.js` 287.23 kB,
+  `ReportsCharts-*.js` 405.67 kB — each loaded only when actually
+  triggered. **Live-tested by Ansh:** Excel export downloads
+  correctly with correct data; Bulk Upload opens and creates tasks
+  correctly from a real CSV; Reports charts render correctly with
+  real data; Tasks page itself loads fast; all other 7 pages
+  confirmed unaffected.
+- **Cache-Control header on `index.html`/`sw.js`/`manifest.json` —
+  deliberately NOT changed, 14 Aug 2026.** Confirmed via
+  `firebase.json`: these 3 files are served with `no-cache,
+  no-store, must-revalidate`, which is what disables the browser's
+  "instant back button" (bfcache) behavior flagged in
+  `PERFORMANCE.md`. This is very likely deliberate, not an oversight
+  — this app is a PWA that deploys freshly-renamed files on every
+  release; loosening this cache header risks a real bug where a
+  browser serves a stale `index.html` that then tries to load JS
+  files from a previous deployment that no longer exist. Real
+  tradeoff: faster back-navigation vs. guaranteed no stuck-on-old-
+  version bug after a deploy. Ansh's decision: leave as-is for now,
+  don't take this on without deliberately weighing that tradeoff
+  first if ever revisited.
 - Deciding `titleLower`'s fate (written but never queried — dead weight).
 - Deleting vestigial logistics/installation code (folded into Backend
   long ago, never removed from types/rules/indexes).
