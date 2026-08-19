@@ -693,3 +693,48 @@ robots.txt):**
   the other 7 pages) confirmed working correctly.
 - **NOT deployed to production** — dev-only, queued with everything
   else currently sitting there.
+
+**Session — 18 August 2026 (production deployment):**
+- **Ansh's report:** indexes deployed first, separately, via
+  `firebase deploy --only firestore:indexes`, before the rules+hosting
+  deploy below. Prod's own separate git repo (`D:\SolarOps`) was
+  committed and pushed for the first time this session — previously
+  never touched by this workflow.
+- **Real captured CLI output, `firebase deploy --only firestore:rules,hosting`
+  from `D:\SolarOps`:**
+  ```
+  PS D:\SolarOps> firebase use
+  Active Project: default (solarops-ritesolar)
+  Project aliases for D:\SolarOps:
+  * default (solarops-ritesolar)
+  Run firebase use --add to define a new project alias.
+  PS D:\SolarOps> firebase deploy --only firestore:rules,hosting
+  === Deploying to 'solarops-ritesolar'...
+  i  deploying firestore, hosting
+  i  firestore: ensuring required API firestore.googleapis.com is enabled...
+  i  firestore: reading indexes from firestore.indexes.json...
+  i  cloud.firestore: checking firestore.rules for compilation errors...
+  +  cloud.firestore: rules file firestore.rules compiled successfully
+  i  firestore: uploading rules firestore.rules...
+  i  hosting[solarops-ritesolar]: beginning deploy...
+  i  hosting[solarops-ritesolar]: found 71 files in dist
+  +  hosting[solarops-ritesolar]: file upload complete
+  +  firestore: released rules firestore.rules to cloud.firestore
+  i  hosting[solarops-ritesolar]: finalizing version...
+  +  hosting[solarops-ritesolar]: version finalized
+  i  hosting[solarops-ritesolar]: releasing new version...
+  +  hosting[solarops-ritesolar]: release complete
+  +  Deploy complete!
+  Project Console: https://console.firebase.google.com/project/solarops-ritesolar/overview
+  Hosting URL: https://solarops-ritesolar.web.app
+  ```
+- **Ansh's report: live-tested on the real production site
+  afterward, all confirmed working** — Lead Source filter combined
+  with Created/Due-Date, Sales Closed tab ordering by recency, Sales
+  Closed Excel export, photo thumbnails rendering correctly, Bulk
+  Upload opening and working, Reports charts rendering with real
+  data, Admin Tools panel showing the correct 3 buttons, and normal
+  page load-through.
+- This batch (corruption-fix follow-ups, Lead Source filter, the
+  security/data-integrity fixes, the structural-risk batch, and the
+  full performance batch) is now live in production, per the above.
