@@ -63,8 +63,24 @@ security requirement, not a convenience detail.
   afterthought, learning directly from that earlier experience.
 
 ## Build sequence (dev only, nothing near production until fully proven)
-1. Set up Cloud Functions in dev; deploy one trivial test function to
-   prove the pipeline works before anything real is built on it.
+1. **DONE 19 Aug 2026** — Cloud Functions set up in dev for the first
+   time in this project's history. `pingBackend` (a trivial HTTP test
+   function) deployed successfully and confirmed responding with a
+   real 200 response and correct JSON, verified directly in browser
+   by Ansh. One real obstacle hit and resolved: the Cloud Build
+   service account had no IAM roles granted by default on this
+   project (fixed by Ansh granting "Cloud Build Service Account" and
+   "Artifact Registry Writer" to the default compute service account).
+   A second obstacle — 2nd-gen functions default to requiring
+   authentication — was resolved by deliberately setting this ONE
+   temporary test function to "Allow public access," since it holds
+   no data and no sensitive logic; every real function built from
+   here on should default back to requiring authentication unless
+   there's a specific, deliberate reason not to. Runtime bumped to
+   Node 22 and `firebase-functions` updated to latest before
+   considering this step done, since Node 20 was already flagged for
+   decommission 30 Oct 2026 — not worth building on a runtime already
+   on a deprecation clock.
 2. Create Algolia account + dev-only index; generate both keys; store
    the admin key only in Cloud Functions' secure config.
 3. Build the sync Cloud Function (Firestore write → Algolia update).
