@@ -9,6 +9,13 @@ listing of `src/`, and the `scripts` block of `package.json` on this
 date. This document reflects only what is confirmed in those files —
 not assumption.**
 
+## Backend — planning began 19 August 2026
+This project has had zero backend/server-side code for its entire
+history until this date. A real backend (Firebase Cloud Functions)
+is now approved and being planned, starting with a search/filter fix
+using Algolia. See `docs/BACKEND_ARCHITECTURE.md` for the full plan.
+Nothing is implemented yet as of this note.
+
 ## 1. Tech stack
 
 **Runtime dependencies** (`package.json`):

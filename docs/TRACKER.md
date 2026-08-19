@@ -738,3 +738,34 @@ robots.txt):**
 - This batch (corruption-fix follow-ups, Lead Source filter, the
   security/data-integrity fixes, the structural-risk batch, and the
   full performance batch) is now live in production, per the above.
+
+**Session — 19 August 2026 (backend architecture approved, Phase 1
+planned, nothing built yet):**
+- Real production bug found by Ansh: State/Lead Source filters
+  silently incomplete for lower-volume states (Bihar, Jharkhand)
+  while working for high-volume ones (Maharashtra, Madhya Pradesh).
+  Root cause confirmed via fresh code investigation: every tab
+  except Date/Due-Date caps at 50 raw documents with zero
+  database-level state check — exactly the already-documented,
+  deliberately-deferred "State filter full scope" limitation,
+  now visibly affecting real use as more states were added.
+- Researched real, current Algolia and Typesense pricing (fetched
+  live, not estimated) before any spending decision — Algolia's
+  free tier (50K records, 10K searches/month) comfortably covers
+  current scale (881 tasks) and the stated future 1-lakh-task
+  target; Typesense Cloud has no comparable free tier for
+  production use. Algolia selected.
+- Full architecture/roadmap document produced covering all backend-
+  dependent items, phased sequencing, and honest reasoning on why
+  not to build everything at once given zero prior backend
+  experience and no automated tests.
+- **Approved by Ansh's leadership, 19 Aug 2026**, to proceed with
+  building real backend infrastructure, starting with Phase 1
+  (the search/filter fix) — full plan now in
+  `docs/BACKEND_ARCHITECTURE.md`.
+- `development-solarops` confirmed upgraded to the Blaze plan by
+  Ansh, matching production — the prerequisite for any Cloud
+  Functions work, now satisfied.
+- **Nothing implemented yet** — this session was planning and
+  documentation only, per Ansh's explicit instruction to fully plan
+  before writing any code.

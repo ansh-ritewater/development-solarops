@@ -52,6 +52,11 @@ this list should be assumed fixed unless TRACKER.md says otherwise.
 ## State filter — full scope for later (narrow fix done first, see
 TRACKER.md; this is the deferred remainder)
 
+**UPDATE 19 Aug 2026: approved for a real, permanent fix via backend
+infrastructure (Algolia-based search), not another index-patch. See
+`docs/BACKEND_ARCHITECTURE.md` for the full Phase 1 plan. Not yet
+implemented — planning only, as of this date.**
+
 A minimal fix (State combinable with Date/Due-Date filters only) was
 implemented AND live-tested 12 Aug 2026 — see TRACKER.md's 12 Aug
 entry for full detail, including the two new indexes deployed to
@@ -106,6 +111,10 @@ if ever attempted:
   same narrow Date/Due-Date fix in this session — Ansh's decision,
   12 Aug 2026, to keep this session's change small. Whether Lead
   Source ever gets the same treatment is a separate open decision.
+  **UPDATE 19 Aug 2026: approved for a real, permanent fix via backend
+  infrastructure (Algolia-based search), not another index-patch. See
+  `docs/BACKEND_ARCHITECTURE.md` for the full Phase 1 plan. Not yet
+  implemented — planning only, as of this date.**
 - **New, found via live testing 12 Aug 2026 (not from code reading):**
   the "Showing N tasks" text and the "Load More Tasks" button's
   visibility are both driven by `tasks.length`/`hasMore` — the RAW
@@ -356,6 +365,11 @@ under the first one
   infrastructure this project could invest in, once current scaling/
   cleanup/hygiene work is further along. Do not lose track of any of
   these six when that decision eventually comes up.
+  **UPDATE 19 Aug 2026: approved by leadership to actually begin
+  building backend infrastructure. Phase 1 (search/filter fix) is
+  first — see `docs/BACKEND_ARCHITECTURE.md`. Once Phase 1 is built
+  and proven, these 6 items become the real candidates for Phase 2
+  onward, in whatever order makes sense at that time.**
 - Separately, 4 Admin Tools buttons ("Recalculate Pipeline Counts",
   "Check Status/Stage Corruption", "Migrate Existing Districts to
   Maharashtra", "Migrate Historical Reverted Tasks") run their OWN
@@ -562,3 +576,8 @@ under the first one
   on Cloudinary's own dashboard is unverified. Suggestion only.
 - Firebase JS SDK (10.14.1) is 2 major versions behind current (12.x).
   Not urgent; suggestion for a future routine upgrade.
+- **See `docs/BACKEND_ARCHITECTURE.md` for the full future-feature
+  brainstorm list (WhatsApp/SMS updates, customer status-tracker
+  links, subsidy-portal automation, scheduled reminders, and more)
+  — added 19 Aug 2026, none decided or scoped, kept there so good
+  ideas aren't lost once backend capability actually exists.

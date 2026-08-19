@@ -129,6 +129,9 @@ by building that first.
   upgrading to Blaze before a Cloud Function could be built or tested
   there at all. Cost impact at this app's real scale would likely be
   small, but this is a real decision point, not a detail.
+  **RESOLVED 19 Aug 2026** — `development-solarops` confirmed upgraded
+  to Blaze by Ansh. This blocker no longer applies to any backend work,
+  including this file's own notifications plan.
 - **PWA/service worker infrastructure already exists** (`vite-plugin-pwa`,
   confirmed in `vite.config.ts` and `docs/ARCHITECTURE.md`) — this is
   the foundation push notifications would build on top of; it does not
