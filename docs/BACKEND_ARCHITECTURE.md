@@ -117,7 +117,24 @@ security requirement, not a convenience detail.
    - Deletion (the third case `onDocumentWritten` handles) not yet
      tested — no task has been archived/deleted since deployment. Code
      path written and compiled cleanly; genuinely untested in practice.
-4. One-time backfill of dev's existing tasks into the new index.
+4. **DONE 19 Aug 2026** — `backfillAlgolia.ts` written as a one-time,
+   manually-run script (never a deployed function, never triggered
+   automatically) reusing the exact field mapping already proven in
+   `syncToAlgolia.ts`. One real bug caught before running: the
+   initial draft read the correct source fields (`assignedTo`/
+   `assignedToName`) but wrote them under the wrong output keys —
+   corrected to match `syncToAlgolia.ts` exactly, so backfilled and
+   newly-synced records are never inconsistent with each other.
+   **Real obstacle hit and resolved**: running locally (not as a
+   deployed function) meant this machine had no Google credentials
+   available by default — resolved via `gcloud auth application-
+   default login`, a one-time authorization tied to Ansh's own
+   Google account, no key files created or left behind.
+   - **Confirmed 19 Aug 2026: run successfully by Ansh, verified via
+     the real Algolia dashboard, not just the script's own output** —
+     read 159 real tasks from Firestore, uploaded all 159 to the
+     `tasks_dev` Algolia index in one batch, zero failures. Dashboard
+     independently confirms "# records: 159," matching exactly.
 5. Build the frontend piece: query Algolia for matching IDs, fetch real
    data from Firestore for those IDs (Option B above).
 6. Wire this specifically into State and Lead Source filters only —
