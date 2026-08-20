@@ -30,6 +30,7 @@ async function main() {
         "pipelineStage",
         "saleClosed",
         "archived",
+        "needsCorrection",
       ],
     },
   });

@@ -9,9 +9,9 @@ const HITS_PER_PAGE = 60;
 
 // Tabs this helper can answer directly from Algolia. Every other real
 // AdminFilter value (unassigned, unassigned_backend, follow_up, overdue,
-// needs_correction, my_tasks, archived) is deliberately NOT covered —
-// searchTaskIdsByFilter returns null for those, and the caller falls
-// back to today's existing subscribeToFilter behavior, unchanged.
+// my_tasks, archived) is deliberately NOT covered — searchTaskIdsByFilter
+// returns null for those, and the caller falls back to today's existing
+// subscribeToFilter behavior, unchanged.
 const TAB_CONDITION: Partial<Record<AdminFilter, string | null>> = {
   all:                    null,
   pending:                'status:pending AND NOT pipelineStage:dropped AND NOT pipelineStage:completed',
@@ -28,6 +28,7 @@ const TAB_CONDITION: Partial<Record<AdminFilter, string | null>> = {
   pipeline_field_review:  'pipelineStage:field_review',
   pipeline_documents:     'pipelineStage:documents',
   pipeline_backend:       'pipelineStage:backend',
+  needs_correction:       'needsCorrection:true',
 };
 
 export interface SearchTaskIdsParams {
@@ -50,8 +51,8 @@ export async function searchTaskIdsByFilter(
 
   if (!(tab in TAB_CONDITION)) {
     // Uncovered tab (unassigned, unassigned_backend, follow_up, overdue,
-    // needs_correction, my_tasks, archived, or any future addition not
-    // yet wired up here) — caller must fall back to subscribeToFilter.
+    // my_tasks, archived, or any future addition not yet wired up
+    // here) — caller must fall back to subscribeToFilter.
     return null;
   }
 

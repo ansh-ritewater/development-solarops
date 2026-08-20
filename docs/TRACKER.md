@@ -769,3 +769,34 @@ planned, nothing built yet):**
 - **Nothing implemented yet** — this session was planning and
   documentation only, per Ansh's explicit instruction to fully plan
   before writing any code.
+
+**Session — 19 August 2026 (first backend infrastructure built:
+Cloud Functions, Algolia search, Load More — full detail in
+docs/BACKEND_ARCHITECTURE.md, this entry is a summary pointer):**
+- Built this project's first-ever backend, in stages, each one
+  tested before the next began: Cloud Functions set up in dev for
+  the first time (`pingBackend` test function); `syncTaskToAlgolia`
+  (Firestore-write-triggered, keeps a new search index in sync);
+  `backfillAlgolia.ts` (one-time script, migrated all 159 real dev
+  tasks); frontend wiring (`algoliaSearch.ts`/`fetchTasksByIds.ts`)
+  finally, permanently fixing the original State/Lead Source
+  production bug for 12 of 19 tabs; Load More pagination for that
+  same path.
+- Several real obstacles hit and fixed along the way, each
+  genuinely verified against evidence rather than assumed — full
+  detail in `BACKEND_ARCHITECTURE.md`: wrong Algolia API version
+  used in an early draft, wrong field names, wrong Firestore
+  region, a missing IAM permission, a stale-listener correctness
+  gap, an accidentally-exposed-then-rotated credential, and the
+  actual root cause of the original bug's fix initially still
+  failing — Algolia's "Attributes for faceting" was never
+  configured, silently returning zero-match responses with no
+  error at all.
+- **Confirmed working via real, independent evidence at every
+  stage** — not just clean builds: real Algolia dashboard record
+  counts, real facet-count sidebars, and live app testing including
+  Bihar's exact 1-task case, the most extreme version of the
+  original bug.
+- **NOT deployed to production** — this entire arc is dev-only.
+  Production will need this same sequence repeated, including the
+  easily-missed facet-configuration step.

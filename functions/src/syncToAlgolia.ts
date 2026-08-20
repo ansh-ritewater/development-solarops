@@ -26,6 +26,7 @@ function toAlgoliaRecord(id: string, data: Record<string, unknown>) {
     status: data.status ?? null,
     saleClosed: data.saleClosed ?? false,
     archived: data.archived ?? false,
+    needsCorrection: !!data.correctionReturnTo,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     dueDate: data.dueDate ?? null,
