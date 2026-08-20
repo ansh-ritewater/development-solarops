@@ -135,10 +135,54 @@ security requirement, not a convenience detail.
      read 159 real tasks from Firestore, uploaded all 159 to the
      `tasks_dev` Algolia index in one batch, zero failures. Dashboard
      independently confirms "# records: 159," matching exactly.
-5. Build the frontend piece: query Algolia for matching IDs, fetch real
-   data from Firestore for those IDs (Option B above).
-6. Wire this specifically into State and Lead Source filters only —
-   Engineer, District, every tab's base query stays untouched.
+5. **DONE 19 Aug 2026** — `algoliaSearch.ts` (frontend, using
+   `liteClient` from `"algoliasearch/lite"` — confirmed to be a
+   genuinely different export than the backend's `algoliasearch`
+   import) queries Algolia for matching IDs; `fetchTasksByIds.ts`
+   fetches real Firestore data for those IDs in chunks of 30
+   (Firestore's real, current `in`-query limit, confirmed against
+   official Google Cloud documentation, not the older "10" some
+   SDKs still reference). True to Option B: Algolia is never the
+   source of displayed data, only of which IDs match.
+   - **A real, initially-missed root cause found and fixed**: the
+     Algolia index had ZERO attributes configured for faceting —
+     confirmed directly via the dashboard ("Attributes for faceting:
+     Not configured"). Without this, every filtered search returned
+     a clean, error-free response with zero matches — explaining why
+     State/Lead Source alone appeared completely broken with no
+     console error at all. Fixed via a new one-time script,
+     `configureAlgoliaIndex.ts` (mirroring `backfillAlgolia.ts`'s
+     reusable pattern), setting `attributesForFaceting` to `state`,
+     `leadSource`, `status`, `pipelineStage`, `saleClosed`, `archived`.
+     **This exact step will need repeating for production's separate
+     Algolia index when that's eventually set up — do not skip it.**
+   - **A real correctness gap found and fixed before any live testing**:
+     the initial implementation didn't tear down a previously-active
+     Firestore `onSnapshot` listener when switching into the
+     Algolia-driven path, risking silent overwrites from stale
+     background updates. Fixed by adding `unsubscribeCurrent()` to
+     `useTasks.ts`, reusing the exact same teardown logic
+     `subscribeToFilter` already used internally — not a duplicate
+     implementation.
+   - Covers 12 of 19 real tabs (all, pending, in_progress, blocked,
+     completed, sales_closed, converted, dropped, and all 4
+     pipeline-stage tabs). The remaining 7 (unassigned,
+     unassigned_backend, follow_up, overdue, needs_correction,
+     my_tasks, archived) correctly fall back to the original,
+     unchanged behavior — deliberately out of scope for this pass.
+   - **Confirmed 19 Aug 2026: live-tested by Ansh, including the exact
+     scenario that started this whole investigation** — Gujarat (5
+     real tasks) and Maharashtra (140 tasks) both correctly show
+     complete results when State is selected alone; independently
+     confirmed via Algolia's own facet-count sidebar, not just the
+     app's behavior. Lead Source alone, State+Pending, and the
+     specific stale-listener scenario (a second tab editing an
+     unrelated task while a filtered view is open) all confirmed not
+     to break the filtered results. First-page-only and no-live-update
+     remain deliberate, documented tradeoffs of Option B, not yet
+     addressed.
+6. Load More / pagination for this path — NOT yet built, next
+   planned addition.
 7. Update Excel export and "Load More" so all three (list, export,
    load-more) stay consistent — matching this project's established
    discipline around exactly this class of inconsistency.
