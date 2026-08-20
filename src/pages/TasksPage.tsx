@@ -18,6 +18,8 @@ import { UpdateTaskDrawer }     from '@/components/tasks/UpdateTaskDrawer';
 import { FieldReviewDrawer }   from '@/components/pipeline/FieldReviewDrawer';
 import { DocumentsWorkDrawer } from '@/components/pipeline/DocumentsWorkDrawer';
 import { cn }                 from '@/lib/utils';
+import { searchTaskIdsByFilter } from '@/utils/algoliaSearch';
+import { fetchTasksByIds }       from '@/utils/fetchTasksByIds';
 import { useArchivedTasks, useTasks, useTabCounts, docToTask, type AdminFilter } from '@/hooks/useTasks';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useFieldEngineers } from '@/hooks/useFieldEngineers';
@@ -515,11 +517,11 @@ const TaskCard = memo(function TaskCard({ task, onClick }: { task: Task; onClick
 export function TasksPage() {
   const {
     tasks, hasMore, loadingMore, loadMore,
-    isLoadingTasks,
+    isLoadingTasks, setTasks, setHasMore, setIsLoadingTasks,
   } = useTaskStore();
 
   const { currentUser } = useAuthStore();
-  const { subscribeToFilter } = useTasks();
+  const { subscribeToFilter, unsubscribeCurrent } = useTasks();
   const { tabCounts, refreshTabCounts } = useTabCounts();
   const { config } = useAppConfig();
   const pc = config.pipelineCounts;
@@ -564,11 +566,25 @@ export function TasksPage() {
   useEffect(() => {
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'view_only') return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (search.trim().length > 0) {
-      debounceRef.current = setTimeout(() => {
+
+    function runExistingBehavior() {
+      if (search.trim().length > 0) {
+        debounceRef.current = setTimeout(() => {
+          subscribeToFilter(
+            filter as AdminFilter,
+            search.trim(),
+            engineerFilter  || undefined,
+            districtFilter  || undefined,
+            dateFilter      || undefined,
+            dueDateFilter   || undefined,
+            stateFilter     || undefined,
+            leadSourceFilter || undefined,
+          );
+        }, 350);
+      } else {
         subscribeToFilter(
           filter as AdminFilter,
-          search.trim(),
+          undefined,
           engineerFilter  || undefined,
           districtFilter  || undefined,
           dateFilter      || undefined,
@@ -576,19 +592,59 @@ export function TasksPage() {
           stateFilter     || undefined,
           leadSourceFilter || undefined,
         );
-      }, 350);
-    } else {
-      subscribeToFilter(
-        filter as AdminFilter,
-        undefined,
-        engineerFilter  || undefined,
-        districtFilter  || undefined,
-        dateFilter      || undefined,
-        dueDateFilter   || undefined,
-        stateFilter     || undefined,
-        leadSourceFilter || undefined,
-      );
+      }
     }
+
+    // Algolia-covered path: only when State/Lead Source is active, no
+    // Date/Due-Date filter, no Engineer/District filter (those combos
+    // keep using their existing, already-working Firestore-only fix,
+    // completely untouched).
+    const canUseAlgolia =
+      (!!stateFilter || !!leadSourceFilter) &&
+      !dateFilter && !dueDateFilter && !engineerFilter && !districtFilter;
+
+    if (canUseAlgolia) {
+      // Tear down any previously-active onSnapshot listener (e.g. from
+      // before State/Lead Source was set) BEFORE switching to the
+      // Algolia-driven result below — otherwise a stale live listener
+      // could keep firing and overwrite what we set here.
+      unsubscribeCurrent();
+
+      // Known/deliberate: first page only for now. Load More /
+      // pagination (requesting page: 1, 2, ... from Algolia) is the
+      // immediate next addition once this is confirmed working live.
+      // And: this path does NOT live-update the way the rest of the
+      // app does — Option B's own stated tradeoff, see
+      // docs/BACKEND_ARCHITECTURE.md.
+      searchTaskIdsByFilter({
+        tab: filter as AdminFilter,
+        stateFilter: stateFilter || undefined,
+        leadSourceFilter: leadSourceFilter || undefined,
+        page: 0,
+      })
+        .then(async (result) => {
+          if (result === null) {
+            // Uncovered tab — fall back, unchanged.
+            runExistingBehavior();
+            return;
+          }
+          setIsLoadingTasks(true);
+          const fetched = await fetchTasksByIds(result.objectIDs);
+          setTasks(fetched);
+          setHasMore(result.nbPages > 1);
+          setIsLoadingTasks(false);
+        })
+        .catch((err) => {
+          // Algolia unreachable/errored — fall back rather than crash,
+          // matching the edge case already planned for in
+          // docs/BACKEND_ARCHITECTURE.md.
+          console.error('[TasksPage] Algolia search failed, falling back to Firestore:', err);
+          runExistingBehavior();
+        });
+    } else {
+      runExistingBehavior();
+    }
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };

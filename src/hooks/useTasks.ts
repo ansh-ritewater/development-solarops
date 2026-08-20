@@ -682,7 +682,21 @@ export function useTasks() {
     };
   }, []);
 
-  return { subscribeToFilter };
+  // Explicitly stop the currently-active onSnapshot listener, if any,
+  // without starting a new one — reuses the exact same unsubRef
+  // teardown subscribeToFilter already runs internally before setting
+  // up a fresh listener. Needed by callers (e.g. TasksPage.tsx's
+  // Algolia-driven path) that want to populate the task list from a
+  // one-off fetch instead of a live subscription, and must guarantee
+  // no stale listener is still running to overwrite that result.
+  function unsubscribeCurrent() {
+    if (unsubRef.current) {
+      unsubRef.current();
+      unsubRef.current = null;
+    }
+  }
+
+  return { subscribeToFilter, unsubscribeCurrent };
 }
 
 export function useTabCounts() {
