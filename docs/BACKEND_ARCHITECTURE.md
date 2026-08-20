@@ -186,8 +186,35 @@ security requirement, not a convenience detail.
      to break the filtered results. First-page-only and no-live-update
      remain deliberate, documented tradeoffs of Option B, not yet
      addressed.
-6. Load More / pagination for this path — NOT yet built, next
-   planned addition.
+6. **DONE 19 Aug 2026** — Load More implemented via a self-re-arming
+   closure (`makeAlgoliaLoadMore`): each successful page fetch
+   creates a fresh function with the next page number baked in
+   directly as a parameter, then re-registers itself as the next
+   `loadMore` handler. A naive version that instead read the page
+   number from React state was caught and rejected before it ever
+   ran — TypeScript's `noUnusedLocals` flagged the state value as
+   unused the moment the correct design stopped needing to read it,
+   which is what surfaced the underlying staleness bug (a state
+   update earlier in the same effect run isn't reflected in that
+   same closure's already-captured value). Appends new results to
+   the existing list rather than replacing it; stops correctly once
+   `nbPages` is exhausted; uses the same shared `loadingMore` state
+   and button every other tab's Load More already uses.
+   - **One known, accepted, narrow edge case, documented rather than
+     fixed** (same treatment as the no-live-update tradeoff): if a
+     Load More request is still in flight at the exact moment the
+     filter changes, its results could resolve after the new filter's
+     own results are already showing, and append onto the wrong list.
+     Requires a fast, specific sequence (click Load More, then
+     immediately change State/Lead Source before the request
+     resolves) — meaningfully narrower than the earlier stale-listener
+     bug, which any unrelated task edit by anyone could trigger.
+     Revisit only if this proves to be a real problem in practice.
+   - **Confirmed 19 Aug 2026: tested by Ansh** — selected Maharashtra
+     (140 real tasks) alone, confirmed the first 60 show, clicked Load
+     More, confirmed additional real tasks appeared (not duplicates),
+     confirmed the button correctly stops appearing once all of
+     Maharashtra's tasks have been shown.
 7. Update Excel export and "Load More" so all three (list, export,
    load-more) stay consistent — matching this project's established
    discipline around exactly this class of inconsistency.
