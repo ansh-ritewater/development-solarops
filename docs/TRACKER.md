@@ -800,3 +800,18 @@ docs/BACKEND_ARCHITECTURE.md, this entry is a summary pointer):**
 - **NOT deployed to production** — this entire arc is dev-only.
   Production will need this same sequence repeated, including the
   easily-missed facet-configuration step.
+
+**Session — 19 August 2026 (needs_correction added to Algolia
+coverage):**
+- Added `needsCorrection` as a new synced field across
+  `syncToAlgolia.ts`/`backfillAlgolia.ts` (identical computation in
+  both, verified via direct diff against each), registered it as a
+  new Algolia facet, and wired `needs_correction` into
+  `algoliaSearch.ts`'s tab mapping — full detail in
+  `BACKEND_ARCHITECTURE.md`. State/Lead Source Algolia coverage now
+  13 of 19 tabs.
+- All 3 real-world activation steps (redeploy, facet-config re-run,
+  backfill re-run) completed by Ansh in order, each confirmed via
+  real command output, not assumed.
+- **NOT deployed to production** — dev-only, same as the rest of
+  this backend arc.

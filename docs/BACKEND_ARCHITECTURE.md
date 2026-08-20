@@ -215,6 +215,28 @@ security requirement, not a convenience detail.
      More, confirmed additional real tasks appeared (not duplicates),
      confirmed the button correctly stops appearing once all of
      Maharashtra's tasks have been shown.
+   - **DONE 19 Aug 2026 — `needs_correction` moved from uncovered to
+     covered.** Added a new synced field, `needsCorrection: !!data
+     .correctionReturnTo`, computed identically in both
+     `syncToAlgolia.ts` and `backfillAlgolia.ts` (a direct translation
+     of this tab's existing check, `!!t.correctionReturnTo`, rather
+     than an approximation) — deliberately a separate precomputed
+     boolean, not the raw `correctionReturnTo` stage-name string
+     itself, since Algolia has no clean "field is non-empty" filter
+     operator. `configureAlgoliaIndex.ts` updated to register it as a
+     7th facet, confirmed live via the script's own real settings
+     read-back showing all 7 entries. `algoliaSearch.ts`'s
+     `TAB_CONDITION` now maps `needs_correction` to
+     `'needsCorrection:true'`, removed from both places the uncovered-
+     tabs comment listed it. All 3 activation steps run by Ansh in
+     order: redeployed `syncTaskToAlgolia`, re-ran the facet-config
+     script, re-ran the backfill against all 159 existing tasks.
+     Coverage now 13 of 19 real tabs.
+   - **Confirmed 19 Aug 2026: Ansh reported the Needs Correction +
+     State combination working when tested** — the actual point of
+     this change, since Needs Correction alone likely already worked
+     under the old behavior given its typically small task volume; the
+     combination with State is what the original bug actually broke.
 7. Update Excel export and "Load More" so all three (list, export,
    load-more) stay consistent — matching this project's established
    discipline around exactly this class of inconsistency.
