@@ -518,6 +518,7 @@ export function TasksPage() {
   const {
     tasks, hasMore, loadingMore, loadMore,
     isLoadingTasks, setTasks, setHasMore, setIsLoadingTasks,
+    setLoadMore, setLoadingMore,
   } = useTaskStore();
 
   const { currentUser } = useAuthStore();
@@ -543,6 +544,16 @@ export function TasksPage() {
   const [leadSourceFilter, setLeadSourceFilter] = useState<string>('');
   const [dateFilter,       setDateFilter]       = useState<string>('');
   const [dueDateFilter,    setDueDateFilter]    = useState<string>('');
+  // Tracks the current page for the Algolia-driven path specifically —
+  // not part of the global task store, since it's meaningless outside
+  // this one code path. Deliberately discarding the value binding: the
+  // actual page-tracking logic passes the current page explicitly
+  // through makeAlgoliaLoadMore's closures below (reading it from
+  // React state here would reintroduce a staleness bug — a state
+  // reset earlier in the same effect run isn't reflected in this
+  // render's closed-over value). setAlgoliaPage still runs, purely to
+  // keep this state correctly reset/updated for any future consumer.
+  const [, setAlgoliaPage] = useState(0);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -610,12 +621,65 @@ export function TasksPage() {
       // could keep firing and overwrite what we set here.
       unsubscribeCurrent();
 
-      // Known/deliberate: first page only for now. Load More /
-      // pagination (requesting page: 1, 2, ... from Algolia) is the
-      // immediate next addition once this is confirmed working live.
-      // And: this path does NOT live-update the way the rest of the
-      // app does — Option B's own stated tradeoff, see
+      // Always start fresh at page 0 when filters change — otherwise a
+      // stale page count from a previous, unrelated search could carry
+      // over.
+      setAlgoliaPage(0);
+
+      // Known/deliberate: this path does NOT live-update the way the
+      // rest of the app does — Option B's own stated tradeoff, see
       // docs/BACKEND_ARCHITECTURE.md.
+
+      // Builds the Load More handler for a given "current page",
+      // re-arming setLoadMore with the NEXT page baked directly into a
+      // fresh closure on every success — deliberately NOT reading
+      // algoliaPage from React state inside this closure, since
+      // setLoadMore is only ever called once per successful fetch, not
+      // re-created on every render; a closure that instead read
+      // algoliaPage from state would stay stale at whatever value it
+      // captured the first time, and every subsequent click would keep
+      // requesting the same page instead of advancing. algoliaPage
+      // itself is still kept in sync via setAlgoliaPage below, purely
+      // for reset-on-filter-change purposes (STEP 2).
+      function makeAlgoliaLoadMore(currentPage: number) {
+        return async () => {
+          setLoadingMore(true);
+          try {
+            const nextPage = currentPage + 1;
+            const moreResult = await searchTaskIdsByFilter({
+              tab: filter as AdminFilter,
+              stateFilter: stateFilter || undefined,
+              leadSourceFilter: leadSourceFilter || undefined,
+              page: nextPage,
+            });
+            if (moreResult === null) {
+              // Shouldn't happen (same tab as the page-0 call that
+              // already succeeded), but guard anyway rather than
+              // assume.
+              setLoadingMore(false);
+              return;
+            }
+            const moreTasks = await fetchTasksByIds(moreResult.objectIDs);
+            const existing = useTaskStore.getState().tasks;
+            setTasks([...existing, ...moreTasks]);
+            setAlgoliaPage(nextPage);
+            const stillMore = nextPage + 1 < moreResult.nbPages;
+            setHasMore(stillMore);
+            if (stillMore) {
+              setLoadMore(makeAlgoliaLoadMore(nextPage));
+            }
+          } catch (err) {
+            // Do NOT fall back to runExistingBehavior() here — that
+            // would mix Algolia-driven results already on screen with
+            // a sudden switch to a totally different data source
+            // mid-list. Just stop and leave what's already shown.
+            console.error('[TasksPage] Algolia loadMore failed:', err);
+          } finally {
+            setLoadingMore(false);
+          }
+        };
+      }
+
       searchTaskIdsByFilter({
         tab: filter as AdminFilter,
         stateFilter: stateFilter || undefined,
@@ -633,6 +697,14 @@ export function TasksPage() {
           setTasks(fetched);
           setHasMore(result.nbPages > 1);
           setIsLoadingTasks(false);
+
+          // Load More for this path — same loadingMore/setLoadingMore
+          // state and the same generic button every other tab already
+          // uses, just backed by Algolia paging instead of a Firestore
+          // cursor.
+          if (result.nbPages > 1) {
+            setLoadMore(makeAlgoliaLoadMore(0));
+          }
         })
         .catch((err) => {
           // Algolia unreachable/errored — fall back rather than crash,
