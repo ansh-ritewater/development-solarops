@@ -164,12 +164,26 @@ security requirement, not a convenience detail.
      `useTasks.ts`, reusing the exact same teardown logic
      `subscribeToFilter` already used internally — not a duplicate
      implementation.
-   - Covers 12 of 19 real tabs (all, pending, in_progress, blocked,
-     completed, sales_closed, converted, dropped, and all 4
-     pipeline-stage tabs). The remaining 7 (unassigned,
-     unassigned_backend, follow_up, overdue, needs_correction,
-     my_tasks, archived) correctly fall back to the original,
-     unchanged behavior — deliberately out of scope for this pass.
+   - Covered as of 19 Aug 2026: 13 of 19 real tabs (all, pending,
+     in_progress, blocked, completed, sales_closed, converted, dropped,
+     all 4 pipeline-stage tabs, and needs_correction). The remaining 6
+     (unassigned, unassigned_backend, follow_up, overdue, my_tasks,
+     archived) correctly fall back to the original, unchanged behavior.
+
+     **Ansh's decision, 19 Aug 2026: `archived`, `unassigned`, and
+     `unassigned_backend` — parked for now, not being picked up next.**
+     All three are already fully scoped and ready whenever picked back
+     up: `archived` needs one line in `TAB_CONDITION` plus a small twist
+     (it's the one tab that needs to flip the hardcoded `archived:false`
+     base condition every other tab relies on, rather than add to it);
+     `unassigned`/`unassigned_backend` each need one new precomputed
+     boolean field (mirroring `needsCorrection`'s pattern exactly —
+     `!data.proposalAssignedTo` / `!data.backendAssignedTo`), then the
+     same 3-step activation sequence (sync redeploy, facet-config
+     re-run, backfill re-run) already proven twice. `follow_up`,
+     `overdue`, and `my_tasks` remain genuinely bigger — date-comparison
+     logic or "who's currently logged in" awareness, not yet scoped in
+     this level of detail.
    - **Confirmed 19 Aug 2026: live-tested by Ansh, including the exact
      scenario that started this whole investigation** — Gujarat (5
      real tasks), Maharashtra (140 tasks), and Bihar (exactly 1 real
