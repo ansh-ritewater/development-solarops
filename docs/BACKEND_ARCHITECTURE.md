@@ -172,8 +172,13 @@ security requirement, not a convenience detail.
      unchanged behavior — deliberately out of scope for this pass.
    - **Confirmed 19 Aug 2026: live-tested by Ansh, including the exact
      scenario that started this whole investigation** — Gujarat (5
-     real tasks) and Maharashtra (140 tasks) both correctly show
-     complete results when State is selected alone; independently
+     real tasks), Maharashtra (140 tasks), and Bihar (exactly 1 real
+     task — the single most extreme, lowest-volume case in the entire
+     dev dataset) all correctly show complete results when State is
+     selected alone. Bihar's confirmation is the strongest possible
+     proof: under the old broken behavior, a state with only 1 task
+     out of 159 had roughly a 1-in-3 chance of appearing at all in any
+     given raw batch — this is now correct every time, independently
      confirmed via Algolia's own facet-count sidebar, not just the
      app's behavior. Lead Source alone, State+Pending, and the
      specific stale-listener scenario (a second tab editing an
