@@ -11,3 +11,5 @@ export const pingBackend = onRequest((req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+export * from "./syncToAlgolia";
