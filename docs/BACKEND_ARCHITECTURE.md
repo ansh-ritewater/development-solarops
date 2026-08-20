@@ -83,7 +83,40 @@ security requirement, not a convenience detail.
    on a deprecation clock.
 2. Create Algolia account + dev-only index; generate both keys; store
    the admin key only in Cloud Functions' secure config.
-3. Build the sync Cloud Function (Firestore write → Algolia update).
+3. **DONE 19 Aug 2026** — `syncTaskToAlgolia` built and deployed,
+   triggered on every Firestore write to `tasks/{taskId}`. Three
+   real corrections made during build, found by checking actual
+   evidence rather than assumption: (a) the initially-planned
+   Algolia client API (`client.initIndex()`) doesn't exist in the
+   version that actually installs today — confirmed via the real
+   library's own type definitions and rewritten against the true
+   v5 API (`client.saveObject({indexName, body})`); (b) the assumed
+   field names `engineerUid`/`engineerName` don't exist on the real
+   `Task` type — the actual fields are `assignedTo`/`assignedToName`,
+   caught by reading `src/types/index.ts` fresh rather than guessing;
+   (c) the function was initially deployed hardcoded to
+   `us-central1`, but this project's real Firestore database lives
+   in `asia-south1` (confirmed via `firebase firestore:databases:get`)
+   — corrected and redeployed successfully.
+   - **Confirmed working via real Algolia dashboard evidence, not just
+     function logs**: creating a new task AND editing an existing one
+     both correctly appeared in `tasks_dev` with correct titles and
+     object IDs. Measured average record size: 327.5 bytes — direct,
+     real confirmation the "sync only minimal fields" design decision
+     holds in practice, comfortably under Algolia's 10KB record cap.
+   - **One real security incident during this step**: the Algolia
+     Write API Key was accidentally printed in plain text while
+     checking whether the secret already existed (wrong command used
+     for what should have been a simple existence check). Caught and
+     disclosed immediately. **Resolved same day**: Ansh generated a new
+     key in Algolia, ran `firebase functions:secrets:set
+     ALGOLIA_WRITE_KEY` again, and confirmed via real CLI output that
+     Firebase detected the function was still on the stale version,
+     redeployed it onto the new one, and explicitly removed the old,
+     exposed version — not just replaced-in-name.
+   - Deletion (the third case `onDocumentWritten` handles) not yet
+     tested — no task has been archived/deleted since deployment. Code
+     path written and compiled cleanly; genuinely untested in practice.
 4. One-time backfill of dev's existing tasks into the new index.
 5. Build the frontend piece: query Algolia for matching IDs, fetch real
    data from Firestore for those IDs (Option B above).
