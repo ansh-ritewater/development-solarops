@@ -251,6 +251,67 @@ security requirement, not a convenience detail.
      this change, since Needs Correction alone likely already worked
      under the old behavior given its typically small task volume; the
      combination with State is what the original bug actually broke.
+   - **DONE 19 Aug 2026 — unassigned, unassigned_backend, follow_up,
+     overdue added; a genuine pre-existing bug found and fixed along
+     the way; archived confirmed out of scope, not a regression.**
+     `unassigned`/`unassigned_backend` follow the exact
+     `needsCorrection` pattern — two new precomputed booleans,
+     `unassignedProposal`/`unassignedBackend`. `follow_up` is a static
+     condition, safe to precompute (`stillInSurvey`, a direct
+     translation of `isActiveFollowUp`/`isOverdue`'s shared rule —
+     only changes on an actual write, no staleness risk). `overdue`
+     is NOT precomputed, deliberately — since "is this overdue" changes
+     purely with the passage of time, with no write event to trigger a
+     resync, it's computed fresh at every search using the real current
+     moment (`Date.now()`) against a genuine numeric `dueDate`
+     (Firestore `Timestamp` converted via `.toMillis()` in both
+     `syncToAlgolia.ts` and `backfillAlgolia.ts` — raw admin-SDK reads
+     return an unconverted Timestamp object, not usable for Algolia's
+     numeric comparisons directly).
+   - **A real, pre-existing correctness bug found and fixed, unrelated
+     to Algolia**: the Overdue tab's actual Firestore query
+     (`useTasks.ts`) never checked `pipelineStage`, while the Overdue
+     badge/tab-count (`isOverdue()` in `TasksPage.tsx`) required the
+     task to still be in Survey — meaning a task that had moved on to
+     Proposal/Field Review/Documents/Backend but was still past its
+     original due date incorrectly appeared in the Overdue list despite
+     the badge/count saying it wasn't overdue. Fixed with a client-side
+     post-filter matching `isOverdue()`'s exact rule, in both the
+     initial listener and `loadMore` — NOT a Firestore query change,
+     since investigation confirmed `where('pipelineStage','in',[null,
+     'survey'])` would be unsafe: Firestore's `in`/`==` never matches a
+     document where a field is genuinely absent (not just `null`), and
+     `migratePipelineStages` confirms real documents predating this
+     field do exist. All three definitions (badge, query, Algolia) now
+     genuinely agree.
+   - **`dueDate`/`followUpDate` needed a second facet-configuration
+     step**, discovered mid-implementation: Algolia's numeric
+     comparison filters (`dueDate < X`, `followUpDate > 0`) require the
+     attribute to be registered the same way equality filters do — not
+     assumed correct without verification, given this project's
+     repeated experience with wrong Algolia assumptions; confirmed via
+     a real backfilled record directly showing `followUpDate: null` as
+     a genuinely present field (not absent), and confirmed working via
+     live app testing of both State+Overdue and State+Follow-up.
+   - **`archived` deliberately reverted, not implemented**: confirmed
+     via direct code read that this tab is handled entirely by a
+     separate hook (`useArchivedTasks`), called with zero parameters,
+     with `TasksPage.tsx`'s `visible` unconditionally short-circuiting
+     to its result — meaning State/Lead Source have ZERO effect on
+     this tab today, for any state, always, not a low-volume edge
+     case. This is a genuine, separate, pre-existing bug, confirmed
+     unrelated to anything built this session. Full detail and the
+     real fix's scope recorded in `docs/PARKED.md`.
+   - Coverage now 17 of 19 real tabs. Only `my_tasks` remains from the
+     original list — different in kind from everything else here,
+     since it depends on who's currently logged in, not a fixed rule.
+   - **Confirmed 19 Aug 2026: live-tested by Ansh** — State+Overdue and
+     State+Follow-up specifically confirmed working (the actual point
+     of this work, not just the tabs alone); unassigned/unassigned_backend
+     confirmed working alone and combined with State; archived+State
+     confirmed still broken as expected, proving the revert correctly
+     restored the original, unrelated, already-tracked behavior rather
+     than accidentally changing it.
 7. Update Excel export and "Load More" so all three (list, export,
    load-more) stay consistent — matching this project's established
    discipline around exactly this class of inconsistency.

@@ -815,3 +815,29 @@ coverage):**
   real command output, not assumed.
 - **NOT deployed to production** — dev-only, same as the rest of
   this backend arc.
+
+**Session — 19 August 2026 (unassigned/follow_up/overdue added to
+Algolia coverage; real pipelineStage drift bug found and fixed):**
+- Added `unassigned`, `unassigned_backend`, `follow_up`, `overdue`
+  to Algolia coverage (13 → 17 of 19 tabs). Full technical detail in
+  `BACKEND_ARCHITECTURE.md`.
+- Found and fixed a genuine, pre-existing bug unrelated to Algolia:
+  the Overdue tab's real Firestore query didn't check pipelineStage
+  the way the Overdue badge/count already did, letting tasks past
+  Survey stage wrongly appear in the Overdue list. Fixed via a
+  client-side post-filter in `useTasks.ts`, after confirming the
+  more obvious Firestore-query fix would have been unsafe (Firestore
+  never matches a genuinely-absent field via `in`/`==`).
+- `archived` investigated and confirmed to have its own, completely
+  separate, pre-existing State/Lead Source bug (zero effect, not a
+  low-volume edge case) — deliberately not touched this session,
+  fully scoped in `PARKED.md` for later.
+- All 4 real activation steps (redeploy, facet-config re-run
+  including the newly-needed `dueDate`/`followUpDate` registration,
+  backfill re-run) completed by Ansh in order, each confirmed via
+  real command output.
+- **Confirmed 19 Aug 2026: live-tested by Ansh** — State+Overdue and
+  State+Follow-up specifically confirmed, the actual target of this
+  work.
+- **NOT deployed to production** — dev-only, same as this entire
+  backend arc.
