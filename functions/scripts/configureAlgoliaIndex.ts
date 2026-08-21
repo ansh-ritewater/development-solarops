@@ -31,6 +31,11 @@ async function main() {
         "saleClosed",
         "archived",
         "needsCorrection",
+        "unassignedProposal",
+        "unassignedBackend",
+        "stillInSurvey",
+        "dueDate",
+        "followUpDate",
       ],
     },
   });

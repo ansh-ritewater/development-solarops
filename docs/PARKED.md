@@ -48,6 +48,22 @@ this list should be assumed fixed unless TRACKER.md says otherwise.
   should join the existing Engineer/District/Date mutual-exclusion
   scheme or stay freely combinable — currently State and Lead Source
   are the only two filters not participating in that scheme at all.
+- **NEW, found 19 Aug 2026 while extending Algolia coverage —
+  genuinely separate from the original State/Lead Source bug:** the
+  Archived tab (`useArchivedTasks` in `useTasks.ts`) is called with
+  zero parameters and has no State/Lead Source logic at all;
+  `TasksPage.tsx`'s `visible` unconditionally short-circuits to
+  `archivedTasks` whenever this tab is active, bypassing every other
+  filter entirely. Confirmed: State and Lead Source currently have
+  ZERO effect on the Archived tab, for any state, every time — not a
+  low-volume edge case, a complete no-op. Real fix, whenever picked
+  up: give `useArchivedTasks` the same stateFilter/leadSourceFilter
+  parameters every other hook already has, add them to its query,
+  and add them to its own re-fetch effect's dependency array
+  (currently only depends on `[filter]`). Likely doesn't need
+  Algolia at all, given archived tasks are typically a much smaller
+  population than active ones — worth checking the real count before
+  assuming otherwise.
 
 ## State filter — full scope for later (narrow fix done first, see
 TRACKER.md; this is the deferred remainder)

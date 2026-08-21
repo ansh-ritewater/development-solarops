@@ -520,6 +520,14 @@ export function useTasks() {
           ? rawTasks.filter(t => !t.backendAssignedTo)
           : filter === 'follow_up'
           ? rawTasks.filter(t => !!t.followUpDate && (!t.pipelineStage || t.pipelineStage === 'survey') && t.status !== 'completed')
+          // Firestore's own status/dueDate/archived constraints above already
+          // narrow this correctly — pipelineStage can't safely be pushed into
+          // the query itself (an 'in' filter never matches a doc where the
+          // field is genuinely absent, which does happen pre-migration — see
+          // migratePipelineStages), so it's checked here instead, matching
+          // isOverdue()'s exact rule in TasksPage.tsx.
+          : filter === 'overdue'
+          ? rawTasks.filter(t => !t.pipelineStage || t.pipelineStage === 'survey')
           : rawTasks;
         setTasks(filtered);
         setLastUpdated(new Date());
@@ -659,6 +667,8 @@ export function useTasks() {
           ? moreTasks.filter((t) => !t.backendAssignedTo)
           : filter === 'follow_up'
           ? moreTasks.filter((t) => !!t.followUpDate && (!t.pipelineStage || t.pipelineStage === 'survey') && t.status !== 'completed')
+          : filter === 'overdue'
+          ? moreTasks.filter((t) => !t.pipelineStage || t.pipelineStage === 'survey')
           : moreTasks;
         const existing = useTaskStore.getState().tasks;
         setTasks([...existing, ...filteredMore]);

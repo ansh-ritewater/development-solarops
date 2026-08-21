@@ -38,9 +38,19 @@ function toAlgoliaRecord(id: string, data: FirebaseFirestore.DocumentData) {
     saleClosed: data.saleClosed ?? false,
     archived: data.archived ?? false,
     needsCorrection: !!data.correctionReturnTo,
+    unassignedProposal: !data.proposalAssignedTo,
+    unassignedBackend: !data.backendAssignedTo,
+    // A direct translation of isActiveFollowUp/isOverdue's own shared
+    // condition (TasksPage.tsx) — safe to precompute since it only
+    // changes on an actual write to the task.
+    stillInSurvey: !data.pipelineStage || data.pipelineStage === "survey",
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
-    dueDate: data.dueDate ?? null,
+    // Algolia's numeric filters need a plain Unix-ms number, not a
+    // Firestore Timestamp object — data here is the raw admin-SDK
+    // document, unconverted.
+    dueDate: (data.dueDate as FirebaseFirestore.Timestamp | null)?.toMillis() ?? null,
+    followUpDate: (data.followUpDate as FirebaseFirestore.Timestamp | null)?.toMillis() ?? null,
   };
 }
 

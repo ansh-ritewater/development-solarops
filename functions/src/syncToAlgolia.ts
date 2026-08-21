@@ -1,6 +1,7 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { algoliasearch } from "algoliasearch";
+import type { Timestamp } from "firebase-admin/firestore";
 
 const algoliaWriteKey = defineSecret("ALGOLIA_WRITE_KEY");
 const INDEX_NAME = "tasks_dev";
@@ -27,9 +28,19 @@ function toAlgoliaRecord(id: string, data: Record<string, unknown>) {
     saleClosed: data.saleClosed ?? false,
     archived: data.archived ?? false,
     needsCorrection: !!data.correctionReturnTo,
+    unassignedProposal: !data.proposalAssignedTo,
+    unassignedBackend: !data.backendAssignedTo,
+    // A direct translation of isActiveFollowUp/isOverdue's own shared
+    // condition (TasksPage.tsx) — safe to precompute since it only
+    // changes on an actual write to the task.
+    stillInSurvey: !data.pipelineStage || data.pipelineStage === "survey",
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
-    dueDate: data.dueDate ?? null,
+    // Algolia's numeric filters need a plain Unix-ms number, not a
+    // Firestore Timestamp object — data here is the raw admin-SDK
+    // document, unconverted.
+    dueDate: (data.dueDate as Timestamp | null)?.toMillis() ?? null,
+    followUpDate: (data.followUpDate as Timestamp | null)?.toMillis() ?? null,
   };
 }
 

@@ -8,10 +8,13 @@ const INDEX_NAME = import.meta.env.VITE_ALGOLIA_INDEX_NAME as string;
 const HITS_PER_PAGE = 60;
 
 // Tabs this helper can answer directly from Algolia. Every other real
-// AdminFilter value (unassigned, unassigned_backend, follow_up, overdue,
-// my_tasks, archived) is deliberately NOT covered — searchTaskIdsByFilter
-// returns null for those, and the caller falls back to today's existing
-// subscribeToFilter behavior, unchanged.
+// AdminFilter value (my_tasks, or any future addition) is deliberately
+// NOT covered — searchTaskIdsByFilter returns null for those, and the
+// caller falls back to today's existing subscribeToFilter behavior,
+// unchanged. 'archived' is also NOT covered here — it's handled entirely
+// by the separate useArchivedTasks hook in useTasks.ts, which this file
+// has no interaction with at all (confirmed 19 Aug 2026 — see
+// docs/PARKED.md for the real, separate State/Lead Source gap on that tab).
 const TAB_CONDITION: Partial<Record<AdminFilter, string | null>> = {
   all:                    null,
   pending:                'status:pending AND NOT pipelineStage:dropped AND NOT pipelineStage:completed',
@@ -29,6 +32,14 @@ const TAB_CONDITION: Partial<Record<AdminFilter, string | null>> = {
   pipeline_documents:     'pipelineStage:documents',
   pipeline_backend:       'pipelineStage:backend',
   needs_correction:       'needsCorrection:true',
+  unassigned:             'unassignedProposal:true',
+  unassigned_backend:     'unassignedBackend:true',
+  follow_up:              'followUpDate > 0 AND stillInSurvey:true AND NOT status:completed',
+  // Placeholder only — the real condition needs the current moment
+  // computed fresh at call time, so it's built below in
+  // searchTaskIdsByFilter itself rather than as a static string here.
+  // This key's only job is to make `tab in TAB_CONDITION` true for 'overdue'.
+  overdue:                null,
 };
 
 export interface SearchTaskIdsParams {
@@ -50,20 +61,19 @@ export async function searchTaskIdsByFilter(
   const { tab, stateFilter, leadSourceFilter, page } = params;
 
   if (!(tab in TAB_CONDITION)) {
-    // Uncovered tab (unassigned, unassigned_backend, follow_up, overdue,
-    // my_tasks, archived, or any future addition not yet wired up
-    // here) — caller must fall back to subscribeToFilter.
+    // Uncovered tab (my_tasks, archived, or any future addition not
+    // yet wired up here) — caller must fall back to subscribeToFilter.
     return null;
   }
 
   const client = liteClient(APP_ID, SEARCH_KEY);
 
-  // 'archived' itself is one of the uncovered tabs above (it has its own
-  // separate hook, useArchivedTasks, not part of this switch at all) —
-  // so by this point tab is always a non-archived tab, and this is
-  // always archived:false.
   const clauses: string[] = ['archived:false'];
-  const tabCondition = TAB_CONDITION[tab];
+  let tabCondition = TAB_CONDITION[tab];
+  if (tab === 'overdue') {
+    const nowMs = Date.now();
+    tabCondition = `(status:pending OR status:in_progress OR status:blocked) AND stillInSurvey:true AND dueDate < ${nowMs}`;
+  }
   if (tabCondition) clauses.push(tabCondition);
   if (stateFilter)      clauses.push(`state:"${stateFilter}"`);
   if (leadSourceFilter) clauses.push(`leadSource:"${leadSourceFilter}"`);
