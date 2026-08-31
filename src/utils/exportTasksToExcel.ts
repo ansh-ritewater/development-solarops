@@ -1,6 +1,31 @@
 import * as XLSX from 'xlsx';
 import type { Task, FieldDefinition } from '@/types';
 
+const STAGE_LABELS: Record<string, string> = {
+  survey:       'Survey',
+  proposal:     'Proposal',
+  field_review: 'Field Review',
+  documents:    'Documents',
+  backend:      'Backend',
+  completed:    'CONVERTED',
+  dropped:      'Dropped',
+};
+
+function makeCloudinaryLinksClickable(ws: XLSX.WorkSheet): void {
+  const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+  for (let R = range.s.r + 1; R <= range.e.r; R++) {
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[cellAddr];
+      if (cell && typeof cell.v === 'string' &&
+          (cell.v.includes('/raw/upload/') ||
+           cell.v.startsWith('https://res.cloudinary.com'))) {
+        cell.l = { Target: cell.v, Tooltip: 'Click to open' };
+      }
+    }
+  }
+}
+
 export function exportTasksToExcel(tasks: Task[]): void {
   const dateStr = (d: Date | null | undefined) =>
     d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
@@ -8,7 +33,76 @@ export function exportTasksToExcel(tasks: Task[]): void {
   const sorted = [...tasks].sort((a, b) => a.taskNum.localeCompare(b.taskNum));
 
   // ── Sheet 1: Tasks Summary ────────────────────────────────────────────────────
-  const summaryRows = sorted.map((t) => ({
+
+  // Application Journey steps, in their real, permanently-fixed
+  // sequence — captured as {label, type} pairs (not just labels) so
+  // photo-type steps can be given multiple photo-slot columns instead
+  // of a single date column. Established from ONE real reference
+  // task's own stored step array (Loan preferred: 18 steps, the
+  // superset containing Cash's 16 in their correct positions), NOT by
+  // whichever task happens to sort first. Confirmed 22 Aug 2026: a
+  // task's own applicationJourneySteps array is sorted correctly once,
+  // at creation, and never reordered afterward.
+  const loanRef = sorted.find(
+    (t) => t.paymentType === 'loan' && (t.applicationJourneySteps?.length ?? 0) > 0,
+  );
+  const cashRef = sorted.find(
+    (t) => t.paymentType === 'cash' && (t.applicationJourneySteps?.length ?? 0) > 0,
+  );
+  const referenceStepDefs = (loanRef ?? cashRef)?.applicationJourneySteps.map(
+    (s) => ({ label: s.label, type: s.type }),
+  ) ?? [];
+
+  // Defensive fallback: append any {label, type} seen on ANY task not
+  // already covered above — appended at the end, first-encountered
+  // order, so nothing is ever silently dropped.
+  const journeySteps: { label: string; type: string }[] = [...referenceStepDefs];
+  const seenJourneyLabels = new Set(referenceStepDefs.map((s) => s.label));
+  for (const t of sorted) {
+    for (const step of (t.applicationJourneySteps ?? [])) {
+      if (!seenJourneyLabels.has(step.label)) {
+        seenJourneyLabels.add(step.label);
+        journeySteps.push({ label: step.label, type: step.type });
+      }
+    }
+  }
+
+  // For photo-type steps specifically, find the max photo count across
+  // all tasks so every task gets the same number of "Label - Photo N"
+  // columns — mirrors exactly the same maxPhotoCounts pattern already
+  // proven for Sheet 2 below.
+  const journeyMaxPhotoCounts: Record<string, number> = {};
+  for (const t of sorted) {
+    for (const stepDef of journeySteps) {
+      if (stepDef.type !== 'photo') continue;
+      const step = (t.applicationJourneySteps ?? []).find((s) => s.label === stepDef.label);
+      const count = step?.photoUrls?.length ?? 0;
+      if (count > (journeyMaxPhotoCounts[stepDef.label] ?? 0)) {
+        journeyMaxPhotoCounts[stepDef.label] = count;
+      }
+    }
+  }
+
+  const summaryRows = sorted.map((t) => {
+    // Assumption: a single task never has two steps sharing the identical
+    // label — .find() below takes the first match only if it ever did.
+    const journeyStepCols: Record<string, string> = {};
+    for (const stepDef of journeySteps) {
+      const step = (t.applicationJourneySteps ?? []).find((s) => s.label === stepDef.label);
+      // Every step, photo or not, gets its own completion-date column first —
+      // photo-type steps ADD photo-slot columns after it, they never replace it.
+      journeyStepCols[stepDef.label] = (step && step.status === 'done' && step.realDate)
+        ? dateStr(new Date(step.realDate))
+        : '';
+      if (stepDef.type === 'photo') {
+        const maxPhotos = Math.max(journeyMaxPhotoCounts[stepDef.label] ?? 0, 1);
+        for (let i = 0; i < maxPhotos; i++) {
+          journeyStepCols[`${stepDef.label} - Photo ${i + 1}`] = step?.photoUrls?.[i] ?? '';
+        }
+      }
+    }
+
+    return {
     'Task #':              t.taskNum,
     'Title':               t.title,
     'Description':         t.description    ?? '',
@@ -30,19 +124,11 @@ export function exportTasksToExcel(tasks: Task[]): void {
     'Blocked Reason':      t.blockedReason ?? '',
     'GPS Latitude':        t.location?.lat ?? '',
     'GPS Longitude':       t.location?.lng ?? '',
-    'Pipeline Stage':      (() => {
-                             const stage = t.pipelineStage ?? 'survey';
-                             const labels: Record<string, string> = {
-                               survey:       'Survey',
-                               proposal:     'Proposal',
-                               field_review: 'Field Review',
-                               documents:    'Documents',
-                               backend:      'Backend',
-                               completed:    'CONVERTED',
-                               dropped:      'Dropped',
-                             };
-                             return labels[stage] ?? stage;
-                           })(),
+    'Pipeline Stage':      STAGE_LABELS[t.pipelineStage ?? 'survey'] ?? (t.pipelineStage ?? 'survey'),
+    'Needs Correction':        t.correctionReturnTo ? 'Yes' : 'No',
+    'Correction Return Stage': t.correctionReturnTo ? (STAGE_LABELS[t.correctionReturnTo] ?? t.correctionReturnTo) : '',
+    'Correction Note':         t.correctionNote ?? '',
+    'Correction Set Date':     dateStr(t.correctionSetAt),
     'Payment Type':        t.paymentType
                              ? (t.paymentType === 'cash' ? 'Cash' : 'Loan')
                              : '',
@@ -55,13 +141,20 @@ export function exportTasksToExcel(tasks: Task[]): void {
                              : '',
     'Journey Total Steps': t.applicationJourneySteps?.length ?? '',
     'Dropped Reason':      t.droppedReason ?? '',
-    'Conversion Date':     t.pipelineStage === 'completed' && t.updatedAt
-                             ? t.updatedAt.toLocaleDateString('en-IN', {
-                                 day: '2-digit', month: 'short', year: 'numeric',
-                                 timeZone: 'Asia/Kolkata',
-                               })
-                             : '',
-  }));
+    'Backend Remark':       t.backendRemark ?? '',
+    'Backend Remark By':    t.backendRemarkUpdatedBy ?? '',
+    'Backend Remark Date':  dateStr(t.backendRemarkUpdatedAt),
+    ...journeyStepCols,
+    'Conversion Date':     (() => {
+                              const entry = (t.stageHistory ?? [])
+                                .find((e) => e.toStage === 'completed');
+                              return entry?.timestamp ? dateStr(entry.timestamp) : '';
+                            })(),
+    'Proposal Remark':      t.proposalRemark ?? '',
+    'Proposal Remark By':   t.proposalRemarkUpdatedBy ?? '',
+    'Proposal Remark Date': dateStr(t.proposalRemarkUpdatedAt),
+    };
+  });
 
   // ── Sheet 2: Field Answers ────────────────────────────────────────────────────
   // One row per task. Photo fields get one column per photo slot so every URL
@@ -163,7 +256,16 @@ export function exportTasksToExcel(tasks: Task[]): void {
     { wch: 12 }, { wch: 20 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 12 },
-    { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 12 }, { wch: 14 },
+    { wch: 14 }, { wch: 18 }, { wch: 30 }, { wch: 14 },
+    { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 12 },
+    { wch: 30 }, { wch: 18 }, { wch: 14 },
+    ...journeySteps.flatMap((stepDef) =>
+      stepDef.type === 'photo'
+        ? [{ wch: 14 }, ...Array(Math.max(journeyMaxPhotoCounts[stepDef.label] ?? 0, 1)).fill({ wch: 50 })]
+        : [{ wch: 14 }]
+    ),
+    { wch: 14 },
+    { wch: 30 }, { wch: 18 }, { wch: 14 },
   ];
   XLSX.utils.book_append_sheet(wb, ws1, 'Tasks Summary');
 
@@ -176,24 +278,15 @@ export function exportTasksToExcel(tasks: Task[]): void {
     { header: allHeaders },
   );
 
-  // Make Cloudinary URLs clickable hyperlinks in Excel
-  const range = XLSX.utils.decode_range(ws2['!ref'] ?? 'A1');
-  for (let R = range.s.r + 1; R <= range.e.r; R++) {
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell = ws2[cellAddr];
-      if (cell && typeof cell.v === 'string' &&
-          (cell.v.includes('/raw/upload/') ||
-           cell.v.startsWith('https://res.cloudinary.com'))) {
-        cell.l = { Target: cell.v, Tooltip: 'Click to open' };
-      }
-    }
-  }
-
   ws2['!cols'] = [
     ...fixedWidths.map((w) => ({ wch: w })),
     ...dynamicWidths,
   ];
+
+  // Make Cloudinary URLs clickable hyperlinks in Excel — both sheets
+  makeCloudinaryLinksClickable(ws1);
+  makeCloudinaryLinksClickable(ws2);
+
   XLSX.utils.book_append_sheet(wb, ws2, 'Field Answers');
 
   const filename = `solarops_tasks_${new Date().toISOString().slice(0, 10)}.xlsx`;
