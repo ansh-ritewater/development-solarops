@@ -164,6 +164,35 @@ work is Ansh's own judgment call, not something code alone can
 answer — full current inventory now on record for whenever a
 redesign is considered.
 
+**RESOLVED 22 Aug 2026** — the Excel export gap is now fixed:
+correction status, Proposal/Backend remarks, per-stage Application
+Journey completion dates AND photos are all now included, plus the
+Conversion Date disagreement with Reports' own export is corrected
+to use the same real `stageHistory`-derived value. Confirmed
+already visible, read-only, to field engineers: Lead Source needed
+no change at all.
+Two real implementation bugs found and fixed during testing, both
+live-tested by Ansh before being accepted:
+1. Journey-step columns initially ordered by whichever task
+   happened to sort first in the export batch, rather than the
+   real, correct process sequence — fixed by using one genuine
+   reference task's own permanently-fixed step order (Loan
+   preferred, since its 18 steps are the superset containing
+   Cash's 16 in their correct positions) instead.
+2. When photo columns were added for the "Images of Installed
+   Solar Panels" step, the completion-date column for that same
+   step was accidentally REPLACED instead of kept — every step,
+   photo or not, now correctly gets its own date column first, with
+   photo-type steps adding photo-slot columns after it, never
+   instead of it.
+Photo columns are built generically for any photo-type Application
+Journey step (not hardcoded to this one label), so this continues
+working correctly if an admin ever renames it or adds another
+photo-type step later. Reports page's own separate CSV exports
+remain untouched and still have the same gaps — Ansh has confirmed
+Reports isn't in active use, so this was deliberately not extended
+there.
+
 ## What's confirmed investigated vs. what's still open
 
 **Fully investigated, evidence-based, ready to act on whenever

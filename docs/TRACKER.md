@@ -841,3 +841,40 @@ Algolia coverage; real pipelineStage drift bug found and fixed):**
   work.
 - **NOT deployed to production** — dev-only, same as this entire
   backend arc.
+
+**Session — 22 August 2026 (Excel export rebuilt for completeness):**
+- Verified Lead Source is already correctly visible, read-only, to
+  field engineers — no change needed.
+- Rebuilt `exportTasksToExcel.ts`'s Sheet 1: added correction status
+  (4 columns), Proposal/Backend remarks (6 columns), and dynamic
+  per-Application-Journey-step columns (completion date for every
+  step; additional numbered photo columns for photo-type steps,
+  generically built for any such step, not hardcoded to one label).
+  Fixed Conversion Date to derive from the real `stageHistory` entry,
+  matching Reports page's already-correct version instead of
+  disagreeing with it. Reordered Sheet 1's columns to Ansh's
+  specified sequence. Extracted the Cloudinary clickable-link logic
+  into one shared helper, reused for both sheets, avoiding a 7th
+  instance of this project's repeated duplicate-logic pattern.
+- Two real bugs found and fixed during implementation/testing, both
+  confirmed via direct diff review before acceptance: journey-step
+  column ordering initially depended on which task sorted first
+  rather than the real process sequence (fixed via a genuine
+  reference-task approach); the photo-column addition initially
+  replaced each photo step's completion-date column instead of
+  adding photo columns alongside it (fixed to always write both).
+- Confirmed via direct investigation before implementation: the
+  export always fetches fresh, live data at the moment of the
+  click, and uses the exact same shared `docToTask` function as the
+  live list — nothing silently missing on this path.
+- **Confirmed 22 Aug 2026: live-tested by Ansh** across corrected
+  tasks, remarked tasks, Cash and Loan payment types together in one
+  export (including the corrected step ordering), a converted
+  task's date cross-checked against real stored data, and multi-
+  photo installation steps with the restored completion date sitting
+  correctly alongside the photo columns. Sheet 2 confirmed
+  completely untouched throughout.
+- Reports page's own separate exports deliberately NOT touched —
+  same gaps remain there, tracked separately, not in active use.
+- **NOT deployed to production** — dev-only, queued with everything
+  else currently sitting there.
