@@ -30,7 +30,11 @@ export function exportTasksToExcel(tasks: Task[]): void {
   const dateStr = (d: Date | null | undefined) =>
     d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
-  const sorted = [...tasks].sort((a, b) => a.taskNum.localeCompare(b.taskNum));
+  const sorted = [...tasks].sort((a, b) => {
+    const numA = parseInt(a.taskNum.replace(/\D/g, ''), 10);
+    const numB = parseInt(b.taskNum.replace(/\D/g, ''), 10);
+    return numA - numB;
+  });
 
   // ── Sheet 1: Tasks Summary ────────────────────────────────────────────────────
 
