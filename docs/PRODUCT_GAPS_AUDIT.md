@@ -192,6 +192,14 @@ photo-type step later. Reports page's own separate CSV exports
 remain untouched and still have the same gaps — Ansh has confirmed
 Reports isn't in active use, so this was deliberately not extended
 there.
+One more real bug caught and fixed after the initial rebuild: the
+export's row ordering used a plain alphabetical sort on Task #,
+which put `T-1000` before `T-091` once counts passed 3 digits —
+fixed to compare the numeric value instead. Both the Excel rebuild
+and this sort fix are now confirmed deployed to production
+(`solarops-ritesolar`), via real `firebase deploy` output and a live
+re-export confirming correct sequencing on the actual production
+site.
 
 ## What's confirmed investigated vs. what's still open
 

@@ -878,3 +878,24 @@ Algolia coverage; real pipelineStage drift bug found and fixed):**
   same gaps remain there, tracked separately, not in active use.
 - **NOT deployed to production** — dev-only, queued with everything
   else currently sitting there.
+
+**Session — 2 September 2026 (Excel export deployed to production):**
+- Deployed the Excel export rebuild (`27c576b`) to
+  `solarops-ritesolar` — confirmed exactly one file
+  (`src/utils/exportTasksToExcel.ts`) needed copying, since
+  `fetchAllTasksForExport` and the Export button's own call site
+  were confirmed byte-identical between dev and prod, and
+  production's Task type already carried every field the new
+  version needed. No Algolia dependency, no rules/index changes,
+  no functions deploy required. Verified via a genuinely clean
+  build in production's own environment before deploying.
+- Found and fixed one more real bug during this deploy: Task # was
+  sorted alphabetically, not numerically — `T-1000` sorted before
+  `T-091`, directly observed in real exported data. Fixed to
+  compare the numeric value inside `taskNum`. Committed as `1899468`.
+- **Confirmed deployed to production** via real `firebase deploy`
+  output for both the rebuild and the sort fix, each followed by a
+  live re-export on the actual production site confirming correct
+  behavior — not just a successful deploy log.
+- The Algolia backend arc remains entirely dev-only, deliberately
+  not touched by this deployment.
