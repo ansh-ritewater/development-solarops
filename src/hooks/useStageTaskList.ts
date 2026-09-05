@@ -177,7 +177,7 @@ export function useStageTaskList(
       const taskNumQuery = query(
         base, ...bc,
         where('taskNum', '>=', trimmed.toUpperCase()),
-        where('taskNum', '<=', trimmed.toUpperCase() + ''),
+        where('taskNum', '<=', trimmed.toUpperCase() + ''),
         limit(PAGE_SIZE),
       );
       const titleQuery = query(
