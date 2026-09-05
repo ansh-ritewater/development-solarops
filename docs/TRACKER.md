@@ -900,3 +900,20 @@ Algolia coverage; real pipelineStage drift bug found and fixed):**
   behavior — not just a successful deploy log.
 - The Algolia backend arc remains entirely dev-only, deliberately
   not touched by this deployment.
+
+**5 Sep 2026 — Fixed taskNum prefix-search bug in useStageTaskList.ts:**
+- Root cause: the taskNum range query's upper bound (`trimmed.toUpperCase()
+  + ''`) was missing the U+F8FF sentinel character present at the other 3
+  taskNum search sites in the codebase (useTasks.ts x2, TasksPage.tsx),
+  making search on the Proposal, Backend, and Backend Manager portals
+  exact-match-only instead of prefix search.
+- Fix: copied the exact sentinel byte from useTasks.ts (a known-correct
+  reference site) into useStageTaskList.ts:180 — one-line change.
+- Live-tested by Ansh on all 3 affected surfaces (Proposal portal, Backend
+  portal, Backend Manager): partial task number search (e.g. 'T-1') now
+  correctly returns all matching prefixes. Also re-confirmed: full exact
+  task number match still works, History tab search still works, admin
+  Tasks page (already-correct, untouched file) shows no regression.
+- Committed to dev, NOT yet deployed to production — same dev/prod gap as
+  the rest of this project's unreleased work.
+- Full detail and the discovery story: see KNOWN_ISSUES.md.

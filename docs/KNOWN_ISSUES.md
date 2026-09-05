@@ -70,3 +70,37 @@ confirming the source file changed correctly, check for a stale
 running dev server before suspecting the fix itself — a full restart
 (`npm run dev`) plus a hard browser refresh (Ctrl+Shift+R) should be
 the first troubleshooting step, not the last.
+
+### taskNum prefix search — RESOLVED IN DEV, NOT YET IN PRODUCTION (5 Sep 2026)
+**Bug:** Proposal portal, Backend portal, and Backend Manager page task-
+number search (`useStageTaskList.ts`) matched only the exact task number
+typed, not prefixes — searching 'T-15' would find nothing unless a task
+was literally named exactly 'T-15'. The admin Tasks page was NOT affected
+(its search lives in useTasks.ts, which was always correct).
+
+**Root cause:** Firestore prefix-range search requires a private-use-area
+Unicode sentinel character (U+F8FF) appended to the query's upper bound —
+`where('taskNum', '<=', term + '\uf8ff')`. useStageTaskList.ts was missing
+this character; likely lost during an earlier copy from useTasks.ts (the
+line's own comment read "Mirror the exact >= / <= '' pattern used in
+useTasks.ts", suggesting the character was dropped in transit).
+
+**Why this was hard to detect — a real methodology lesson:** U+F8FF is
+invisible in every normal view of the code — a code editor, `cat`, a zip
+file, or a text-based `grep` for its escape sequence (`grep "f8ff"` or
+`grep "\\uf8ff"`) all return clean 'not found' results whether the
+character is genuinely present OR genuinely absent, because those searches
+look for the literal ASCII text of the escape sequence, not the actual
+Unicode codepoint. This produced a confidently wrong 'confirmed absent
+everywhere' conclusion earlier in the investigation, which a live UI test
+(typing a partial task number and observing the real result) directly
+contradicted. **Lesson for future debugging: an invisible/private-use-area
+character can only be confirmed present or absent via a byte-level /
+codepoint-level check (e.g. Python `ord()` on each character), or a live
+functional test — never by reading code or by text-based grep, no matter
+how targeted the search string.**
+
+**Status:** Fixed in dev (`src/hooks/useStageTaskList.ts:180`), committed,
+live-tested on all 3 affected portals. **NOT yet deployed to production**
+— production still has the exact-match-only bug on these 3 portals until
+the next deployment cycle.
