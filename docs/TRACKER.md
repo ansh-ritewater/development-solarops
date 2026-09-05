@@ -810,8 +810,8 @@ coverage):**
   `algoliaSearch.ts`'s tab mapping — full detail in
   `BACKEND_ARCHITECTURE.md`. State/Lead Source Algolia coverage now
   13 of 19 tabs.
-- All 3 real-world activation steps (redeploy, facet-config re-run,
-  backfill re-run) completed by Ansh in order, each confirmed via
+- The full activation sequence (see `BACKEND_ARCHITECTURE.md`'s
+  canonical checklist) completed by Ansh in order, each confirmed via
   real command output, not assumed.
 - **NOT deployed to production** — dev-only, same as the rest of
   this backend arc.
@@ -832,10 +832,11 @@ Algolia coverage; real pipelineStage drift bug found and fixed):**
   separate, pre-existing State/Lead Source bug (zero effect, not a
   low-volume edge case) — deliberately not touched this session,
   fully scoped in `PARKED.md` for later.
-- All 4 real activation steps (redeploy, facet-config re-run
-  including the newly-needed `dueDate`/`followUpDate` registration,
-  backfill re-run) completed by Ansh in order, each confirmed via
-  real command output.
+- The full activation sequence (see `BACKEND_ARCHITECTURE.md`'s
+  canonical checklist — this session also needed the facet-config
+  re-run to register `dueDate`/`followUpDate`'s numeric-comparison
+  faceting) completed by Ansh in order, each confirmed via real
+  command output.
 - **Confirmed 19 Aug 2026: live-tested by Ansh** — State+Overdue and
   State+Follow-up specifically confirmed, the actual target of this
   work.

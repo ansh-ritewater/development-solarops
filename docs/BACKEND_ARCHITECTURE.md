@@ -114,9 +114,13 @@ security requirement, not a convenience detail.
      Firebase detected the function was still on the stale version,
      redeployed it onto the new one, and explicitly removed the old,
      exposed version — not just replaced-in-name.
-   - Deletion (the third case `onDocumentWritten` handles) not yet
-     tested — no task has been archived/deleted since deployment. Code
-     path written and compiled cleanly; genuinely untested in practice.
+   - The deletion branch in `syncToAlgolia.ts` (the `onDocumentWritten`
+     case for a task document being deleted) is not merely untested —
+     it is currently unreachable through the app. A full grep for
+     `deleteDoc` across `src/` returns zero hits: nothing in the
+     codebase ever hard-deletes a task document (archive is a soft
+     flag, not a deletion). This branch cannot be exercised unless a
+     real hard-delete path is ever added.
 4. **DONE 19 Aug 2026** — `backfillAlgolia.ts` written as a one-time,
    manually-run script (never a deployed function, never triggered
    automatically) reusing the exact field mapping already proven in
@@ -320,6 +324,74 @@ security requirement, not a convenience detail.
    reality, not just the plan).
 10. Repeat this project's established audit-then-deploy process, with
     a SEPARATE production Algolia index, before touching real data.
+
+## Algolia field-change activation checklist (canonical)
+Whenever a field that feeds Algolia changes, the full activation
+sequence is:
+  Step 0 (code): edit `toAlgoliaRecord` in BOTH
+    `functions/src/syncToAlgolia.ts` and
+    `functions/scripts/backfillAlgolia.ts`, identically.
+  Step 1: redeploy `syncTaskToAlgolia`.
+  Step 2: re-run `functions/scripts/configureAlgoliaIndex.ts` — only
+    required if a NEW filterable/facetable field was added.
+  Step 3: re-run `functions/scripts/backfillAlgolia.ts`.
+(This was previously recorded inconsistently — "3 steps" in one
+place, "4 steps" while only listing 3 in another. The "4" was a
+miscount of Step 0 plus the 3 run-steps, not a real distinct 4th
+step.)
+
+## Facet configuration — current real total (verification note)
+`configureAlgoliaIndex.ts`'s `attributesForFaceting` list has grown
+past the "7th facet" figure recorded earlier in this document's
+session history (that figure was accurate for its own point in time,
+before `dueDate`/`followUpDate`'s later, separate registration — see
+below). Read directly from the script, the current real list is 12
+entries: `state`, `leadSource`, `status`, `pipelineStage`,
+`saleClosed`, `archived`, `needsCorrection`, `unassignedProposal`,
+`unassignedBackend`, `stillInSurvey`, `dueDate`, `followUpDate`.
+`dueDate` and `followUpDate` required numeric-comparison faceting
+specifically, which forced a second configuration run
+mid-implementation — this is why the facet count grew after the
+initial setup.
+
+### Required prerequisite before production deployment
+REQUIRED PREREQUISITE before any production Algolia work: `INDEX_NAME`
+("tasks_dev") and `APP_ID` ("PUIHSC9EQ7") are hardcoded — not read
+from environment or config — in all three Algolia backend files:
+`functions/src/syncToAlgolia.ts`, `functions/scripts/configureAlgoliaIndex.ts`,
+`functions/scripts/backfillAlgolia.ts`. Copying any of these files to
+production as-is will silently point production at the dev
+account/index. These must be parameterized before production
+deployment begins.
+DANGER: `functions/scripts/backfillAlgolia.ts` is the highest-risk of
+the three — if ever run against production Firestore data while
+still pointed at the dev index/app, it would read production's real
+tasks (last independently documented at ~750, in
+`NOT_YET_INVESTIGATED.md`'s 10 Aug 2026 snapshot — not re-confirmed
+as a current count in this pass) and overwrite the dev index
+(`tasks_dev`) wholesale.
+
+### Algolia account architecture
+Algolia account reality (per Algolia's own pricing page and Terms of
+Service, as reported by Ansh): the Free, Grow, and Grow Plus plans
+all cap an account at exactly 1 application; only the Elevate
+(annual, enterprise) tier allows more. Records and search requests
+are counted per-account across all indices in that account — per
+Algolia's own pricing FAQ, not an assumption.
+Decision: production gets its own separate Algolia account, its own
+App ID, and its own index — not a second index inside the existing
+`solarops-dev` application.
+Note on running two free accounts under one organization: Algolia's
+Terms of Service contain no explicit rule against one organization
+holding multiple free accounts, but Section 4.5(l) of the Terms
+prohibits using the service "in a way that circumvents a usage or
+capacity limit." Two free accounts used specifically to keep each
+environment under the single-account ceiling could plausibly be read
+that way — Algolia's published terms do not resolve this either way.
+Decision made: proceed with two separate free accounts regardless, as
+a low-probability, low-cost-if-wrong risk (free-tier accounts already
+carry no uptime or data-retention guarantees under Algolia's own
+terms, independent of this specific question).
 
 ## Explicitly deferred to later phases (not part of this build)
 Everything already consolidated in `PARKED.md`'s backend-dependent

@@ -35,7 +35,8 @@ before deciding what to actually work on.
    real workflows; found 2 more instances of the project's most-
    repeated bug pattern (duplicate logic that could silently drift),
    bringing the running total to 6 confirmed instances across the
-   whole project's history.
+   whole project's history (later 7 — see below; `toAlgoliaRecord`
+   was found independently, outside this audit series).
 
 ## Everything found, grouped by what it actually needs — not by
 which document it came from
@@ -43,9 +44,15 @@ which document it came from
 **Small, contained, no backend needed, could be done quickly whenever
 picked up:**
 - Search+State/Lead-Source regression (`FILTER_AUDIT.md` #10)
-- The 6 duplicate-logic-drift instances (Pipeline Counts, isOverdue,
+- The 7 duplicate-logic-drift instances (Pipeline Counts, isOverdue,
   Conversion Date, Sales Closed mapper, Field Review next-stage,
-  Proposal revision numbering)
+  Proposal revision numbering, `toAlgoliaRecord`)
+  — `toAlgoliaRecord` is duplicated across
+  `functions/src/syncToAlgolia.ts` and
+  `functions/scripts/backfillAlgolia.ts`, kept in sync only by a code
+  comment referencing the other file, with no shared source of truth.
+  Any field mapping change must be applied to both, identically, or
+  the live sync and the backfill tool will silently diverge.
 - 22 of 29 missing role checks (`BACKEND_ROADMAP_AUDIT.md`) — simple,
   proven one-line pattern
 - Payment-type-can-be-reset and Convert-not-reverified integrity gaps
